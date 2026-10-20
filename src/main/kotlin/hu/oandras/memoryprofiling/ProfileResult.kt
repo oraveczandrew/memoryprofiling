@@ -33,7 +33,7 @@ enum class ProfileKind {
  * @property kind Artifact kind.
  */
 data class ProfileResult(
-    val label: String,
-    val path: String,
-    val kind: ProfileKind,
+    @JvmField val label: String,
+    @JvmField val path: String,
+    @JvmField val kind: ProfileKind,
 )

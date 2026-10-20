@@ -28,7 +28,7 @@ package hu.oandras.memoryprofiling
  * @property durationNanos Wall-clock duration of the measured block.
  */
 data class CounterResult(
-    val allocatedCount: Long,
-    val allocatedBytes: Long,
-    val durationNanos: Long,
+    @JvmField val allocatedCount: Long,
+    @JvmField val allocatedBytes: Long,
+    @JvmField val durationNanos: Long,
 )

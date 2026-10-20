@@ -17,7 +17,7 @@
 package hu.oandras.memoryprofiling
 
 /** Heap sampled by Perfetto `heapprofd`. */
-enum class Heap(internal val perfettoName: String) {
+enum class Heap(@JvmField internal val perfettoName: String) {
     /** ART managed heap (`com.android.art`). Requires Android 12 (API 31) or newer. */
     ART("com.android.art"),
 
@@ -39,12 +39,12 @@ enum class Heap(internal val perfettoName: String) {
  * @property processName Process to profile. Defaults to the test process package name.
  */
 class HeapprofdConfig(
-    val heaps: Set<Heap> = setOf(Heap.ART),
-    val samplingIntervalBytes: Int = DEFAULT_SAMPLING_INTERVAL_BYTES,
-    val shmemSizeBytes: Int = DEFAULT_SHMEM_SIZE_BYTES,
-    val dumpIntervalMs: Int = DEFAULT_DUMP_INTERVAL_MS,
-    val blockClient: Boolean = true,
-    val processName: String? = null,
+    @JvmField val heaps: Set<Heap> = setOf(Heap.ART),
+    @JvmField val samplingIntervalBytes: Int = DEFAULT_SAMPLING_INTERVAL_BYTES,
+    @JvmField val shmemSizeBytes: Int = DEFAULT_SHMEM_SIZE_BYTES,
+    @JvmField val dumpIntervalMs: Int = DEFAULT_DUMP_INTERVAL_MS,
+    @JvmField val blockClient: Boolean = true,
+    @JvmField val processName: String? = null,
 ) {
 
     init {

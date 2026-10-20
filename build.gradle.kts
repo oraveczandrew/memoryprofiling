@@ -63,7 +63,7 @@ android {
 dependencies {
     implementation("androidx.benchmark:benchmark-common:1.6.0-alpha01")
     implementation("androidx.benchmark:benchmark-traceprocessor:1.6.0-alpha01")
-    implementation("androidx.test:monitor:1.9.0-alpha01")
+    implementation("androidx.test:monitor:1.9.0-alpha02")
 
     androidTestImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

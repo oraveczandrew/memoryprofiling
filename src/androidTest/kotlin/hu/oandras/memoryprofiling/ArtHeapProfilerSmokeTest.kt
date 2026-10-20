@@ -14,6 +14,8 @@
  *    limitations under the License.
  */
 
+@file:Suppress("DEPRECATION")
+
 package hu.oandras.memoryprofiling
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -26,7 +28,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@Suppress("DEPRECATION")
 @RunWith(AndroidJUnit4::class)
 class ArtHeapProfilerSmokeTest {
 
