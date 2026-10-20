@@ -25,13 +25,13 @@ built as an Android library with the `hu.oandras.memoryprofiling` namespace.
 
 ```kotlin
 // settings.gradle.kts
-include(":memoryProfilingTestUtils")
+include(":androidMemoryProfilingTestUtils")
 ```
 
 ```kotlin
 // consumer module build.gradle.kts
 dependencies {
-    androidTestImplementation(project(":memoryProfilingTestUtils"))
+    androidTestImplementation(project(":androidMemoryProfilingTestUtils"))
 }
 ```
 

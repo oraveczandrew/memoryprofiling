@@ -37,4 +37,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "memory-profiling-test-utils"
+rootProject.name = "android-memory-profiling-test-utils"
