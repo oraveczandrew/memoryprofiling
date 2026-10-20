@@ -15,7 +15,7 @@
  */
 
 plugins {
-    alias(libs.plugins.android.library)
+    id("com.android.library")
 }
 
 android {
@@ -61,11 +61,11 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.benchmark.common)
-    implementation(libs.androidx.benchmark.traceprocessor)
-    implementation(libs.androidx.test.monitor)
+    implementation("androidx.benchmark:benchmark-common:1.6.0-alpha01")
+    implementation("androidx.benchmark:benchmark-traceprocessor:1.6.0-alpha01")
+    implementation("androidx.test:monitor:1.9.0-alpha01")
 
-    androidTestImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }

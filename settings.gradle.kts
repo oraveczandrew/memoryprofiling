@@ -26,6 +26,7 @@ pluginManagement {
 
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+    id("com.android.library") version "9.4.1" apply false
 }
 
 dependencyResolutionManagement {
