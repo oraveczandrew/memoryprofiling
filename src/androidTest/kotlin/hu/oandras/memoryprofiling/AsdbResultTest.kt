@@ -21,6 +21,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.concurrent.thread
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -77,6 +81,38 @@ class AsdbResultTest {
             "Unexpected message: ${(capture as AsdbCaptureResult.Failure).message}",
             capture.message.contains("no allocation events"),
         )
+    }
+
+    @SdkSuppress(minSdkVersion = 28)
+    @Test
+    fun concurrentCaptureReturnsFailure() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val first = AtomicReference<AsdbCaptureResult?>()
+        val config = AsdbConfig(sampleEvery = 1, stackDepth = 0)
+
+        val captureThread = thread(name = "first-asdb-capture") {
+            first.set(
+                ArtHeapProfiler.recordAsdb(context, "first", config) {
+                    entered.countDown()
+                    release.await()
+                    allocate()
+                },
+            )
+        }
+
+        assertTrue("The first capture did not start", entered.await(30, TimeUnit.SECONDS))
+        val second = ArtHeapProfiler.recordAsdb(context, "second", config) { allocate() }
+        release.countDown()
+        captureThread.join(30_000)
+
+        assertTrue("Expected Failure, got $second", second is AsdbCaptureResult.Failure)
+        assertTrue(
+            "Unexpected message: ${(second as AsdbCaptureResult.Failure).message}",
+            second.message.contains("already running"),
+        )
+        assertTrue("Expected Success, got ${first.get()}", first.get() is AsdbCaptureResult.Success)
     }
 
     @SdkSuppress(minSdkVersion = 28)

@@ -31,6 +31,8 @@ internal object AsdbBackend {
 
     private const val POLL_INTERVAL_MS = 25L
 
+    private val captureInProgress = AtomicBoolean(false)
+
     fun isSupported(): Boolean =
         try {
             isSupported(InstrumentationRegistry.getInstrumentation().targetContext)
@@ -56,6 +58,22 @@ internal object AsdbBackend {
     }
 
     fun record(context: Context, label: String, config: AsdbConfig, block: () -> Unit): ProfileResult {
+        if (!captureInProgress.compareAndSet(false, true)) {
+            throw AsdbCaptureException("Another .asdb capture is already running.")
+        }
+        try {
+            return capture(context, label, config, block)
+        } finally {
+            captureInProgress.set(false)
+        }
+    }
+
+    private fun capture(
+        context: Context,
+        label: String,
+        config: AsdbConfig,
+        block: () -> Unit,
+    ): ProfileResult {
         if (!isSupported(context)) {
             throw AsdbNotSupportedException(unsupportedMessage(context))
         }
