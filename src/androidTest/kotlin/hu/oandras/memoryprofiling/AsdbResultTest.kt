@@ -133,6 +133,40 @@ class AsdbResultTest {
 
     @SdkSuppress(minSdkVersion = 28)
     @Test
+    fun overloadsGetDistinctMethodIds() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+        val capture = ArtHeapProfiler.recordAsdb(
+            context,
+            "overloads",
+            AsdbConfig(sampleEvery = 1, stackDepth = 8),
+        ) {
+            overloaded(1)
+            overloaded("value")
+        }
+        assertTrue("Expected Success, got $capture", capture is AsdbCaptureResult.Success)
+
+        val file = File((capture as AsdbCaptureResult.Success).profile.path)
+        val methodIds = HashSet<Int>()
+        SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            db.rawQuery("SELECT Data FROM UnifiedEventsTable WHERE Kind = 408", null).use { c ->
+                while (c.moveToNext()) {
+                    val contexts = c.getBlob(0).field(408) ?: continue
+                    val batch = contexts.field(1) ?: continue
+                    batch.forEachField { field, _, bytes ->
+                        if (field == 3 && bytes != null && bytes.string(3) == "overloaded") {
+                            bytes.varInt(1)?.let { methodIds.add(it.toInt()) }
+                        }
+                    }
+                }
+            }
+        }
+
+        assertTrue("Expected two method IDs, got $methodIds", methodIds.size >= 2)
+    }
+
+    @SdkSuppress(minSdkVersion = 28)
+    @Test
     fun repeatedCaptureDefinesAllReferencedClasses() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val config = AsdbConfig(sampleEvery = 1, stackDepth = 4)
@@ -186,9 +220,25 @@ class AsdbResultTest {
         check(values.size == 1000)
     }
 
+    private fun overloaded(value: Int) {
+        check(value == 1)
+        allocate()
+    }
+
+    private fun overloaded(value: String) {
+        check(value == "value")
+        allocate()
+    }
+
     private fun ByteArray.field(target: Int): ByteArray? {
         var result: ByteArray? = null
         forEachField { field, _, bytes -> if (field == target) result = bytes }
+        return result
+    }
+
+    private fun ByteArray.string(target: Int): String? {
+        var result: String? = null
+        forEachField { field, _, bytes -> if (field == target) result = bytes?.toString(Charsets.UTF_8) }
         return result
     }
 

@@ -164,17 +164,18 @@ uint32_t intern_method(jvmtiEnv* jvmti,
     char* raw_signature = nullptr;
     char* raw_generic = nullptr;
     std::string name;
+    std::string signature;
     if (jvmti->GetMethodName(method, &raw_name, &raw_signature, &raw_generic) ==
         JVMTI_ERROR_NONE) {
         name = copy_and_free(jvmti, raw_name);
+        signature = copy_and_free(jvmti, raw_signature);
     }
-    jvmti->Deallocate(reinterpret_cast<unsigned char*>(raw_signature));
     jvmti->Deallocate(reinterpret_cast<unsigned char*>(raw_generic));
     if (name.empty()) {
         name = "<unknown>";
     }
 
-    const std::string key = class_name + '\x1f' + name;
+    const std::string key = class_name + '\x1f' + name + '\x1f' + signature;
     auto it = g_method_ids.find(key);
     if (it != g_method_ids.end()) {
         const uint32_t id = it->second;
