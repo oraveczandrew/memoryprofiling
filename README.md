@@ -47,7 +47,7 @@ AAR for the release you need, place it under `libs/`, and add it as an
 instrumentation-test dependency:
 
 ```kotlin
-androidTestImplementation(files("libs/android-memory-profiling-test-utils-0.1.0.aar"))
+androidTestImplementation(files("libs/android-memory-profiling-test-utils-<version>.aar"))
 ```
 
 The AAR contains `liballoc_agent.so` for `arm64-v8a`, `armeabi-v7a`, `x86` and

@@ -54,33 +54,32 @@ internal object NativeAllocAgent {
         ensureLoaded(context)
         loadError?.let { throw AsdbCaptureException("Unable to load the allocation agent.", it) }
 
-        if (nativeIsAttached()) {
-            return
-        }
-
-        val library = agentFile
-            ?: throw AsdbCaptureException("The allocation agent has no file path.")
-        val options = "sampleEvery=$sampleEvery,depth=$stackDepth"
-        val error = try {
-            Debug.attachJvmtiAgent(
-                library.absolutePath,
-                options,
-                NativeAllocAgent::class.java.classLoader,
-            )
-            null
-        } catch (e: IOException) {
-            e
-        } catch (e: UnsatisfiedLinkError) {
-            e
-        } catch (e: IllegalArgumentException) {
-            e
-        }
-        if (error != null) {
-            throw AsdbCaptureException("Unable to attach the JVMTI allocation agent.", error)
-        }
         if (!nativeIsAttached()) {
-            throw AsdbCaptureException("The JVMTI allocation agent did not attach.")
+            val library = agentFile
+                ?: throw AsdbCaptureException("The allocation agent has no file path.")
+            val options = "sampleEvery=$sampleEvery,depth=$stackDepth"
+            val error = try {
+                Debug.attachJvmtiAgent(
+                    library.absolutePath,
+                    options,
+                    NativeAllocAgent::class.java.classLoader,
+                )
+                null
+            } catch (e: IOException) {
+                e
+            } catch (e: UnsatisfiedLinkError) {
+                e
+            } catch (e: IllegalArgumentException) {
+                e
+            }
+            if (error != null) {
+                throw AsdbCaptureException("Unable to attach the JVMTI allocation agent.", error)
+            }
+            if (!nativeIsAttached()) {
+                throw AsdbCaptureException("The JVMTI allocation agent did not attach.")
+            }
         }
+        nativeConfigure(sampleEvery, stackDepth)
     }
 
     private fun ensureLoaded(context: Context) {
@@ -138,6 +137,9 @@ internal object NativeAllocAgent {
     fun drain(): ByteArray? = nativeDrain()
 
     fun droppedEvents(): Long = nativeDropped()
+
+    @JvmStatic
+    private external fun nativeConfigure(sampleEvery: Int, stackDepth: Int)
 
     @JvmStatic
     private external fun nativeStart()

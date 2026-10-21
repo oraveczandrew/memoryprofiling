@@ -19,6 +19,7 @@ package hu.oandras.memoryprofiling
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.filters.SdkSuppress
 import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -26,6 +27,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @LargeTest
+@SdkSuppress(minSdkVersion = 28)
 @RunWith(AndroidJUnit4::class)
 class AsdbCaptureSmokeTest {
 

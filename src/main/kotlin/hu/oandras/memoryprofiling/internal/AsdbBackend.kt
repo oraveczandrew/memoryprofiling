@@ -33,7 +33,7 @@ internal object AsdbBackend {
     fun isSupported(): Boolean =
         try {
             isSupported(InstrumentationRegistry.getInstrumentation().targetContext)
-        } catch (e: IllegalStateException) {
+        } catch (_: IllegalStateException) {
             false
         }
 
@@ -116,7 +116,7 @@ internal object AsdbBackend {
                 try {
                     thread.join()
                     break
-                } catch (e: InterruptedException) {
+                } catch (_: InterruptedException) {
                     interrupted = true
                 }
             }

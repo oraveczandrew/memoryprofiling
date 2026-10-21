@@ -18,6 +18,7 @@ package hu.oandras.memoryprofiling.sample
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import hu.oandras.ksvg.SVG
 import hu.oandras.memoryprofiling.ArtHeapProfiler
@@ -30,6 +31,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @LargeTest
+@SdkSuppress(minSdkVersion = 28)
 @RunWith(AndroidJUnit4::class)
 class SvgMapCaptureTest {
 

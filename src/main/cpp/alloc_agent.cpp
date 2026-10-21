@@ -106,6 +106,8 @@ std::atomic<uint64_t> g_dropped{0};
 
 thread_local bool tls_ignore = false;
 thread_local bool tls_in_callback = false;
+thread_local int tls_sample_countdown = 0;
+thread_local int tls_sample_every = 1;
 
 struct CallbackGuard {
     CallbackGuard() { tls_in_callback = true; }
@@ -274,12 +276,15 @@ void JNICALL on_vm_object_alloc(jvmtiEnv* jvmti,
     CallbackGuard callback_guard;
 
     const int every = g_sample_every.load(std::memory_order_relaxed);
+    if (every != tls_sample_every) {
+        tls_sample_countdown = 0;
+        tls_sample_every = every;
+    }
     if (every > 1) {
-        static thread_local int countdown = 0;
-        if (++countdown < every) {
+        if (++tls_sample_countdown < every) {
             return;
         }
-        countdown = 0;
+        tls_sample_countdown = 0;
     }
 
     char* raw_signature = nullptr;
@@ -433,7 +438,30 @@ extern "C" JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM* vm, char* options, void*)
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_hu_oandras_memoryprofiling_internal_NativeAllocAgent_nativeConfigure(JNIEnv*,
+                                                                         jclass,
+                                                                         jint sample_every,
+                                                                         jint stack_depth) {
+    g_sample_every.store(sample_every > 0 ? sample_every : 1);
+    g_stack_depth.store(stack_depth >= 0 ? stack_depth : 0);
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_hu_oandras_memoryprofiling_internal_NativeAllocAgent_nativeStart(JNIEnv*, jclass) {
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_class_ids.clear();
+        g_method_ids.clear();
+        g_methods.clear();
+        g_stack_ids.clear();
+        g_thread_ids.clear();
+        g_next_class_id = 1;
+        g_next_method_id = 1;
+        g_next_stack_id = 1;
+        g_next_thread_id = 1;
+        g_pending = Pending{};
+        g_dropped.store(0, std::memory_order_relaxed);
+    }
     g_recording.store(true);
 }
 
