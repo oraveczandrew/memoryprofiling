@@ -42,9 +42,19 @@ internal object OutputFiles {
     private const val RESULT_KEY_PREFIX = "additionalTestOutputFile_"
     private const val IN_PROGRESS_STATUS = 2
 
-    fun create(label: String, extension: String): File {
+    fun create(label: String, extension: String): File =
+        create(label, extension, external = true)
+
+    fun createInternal(label: String, extension: String): File =
+        create(label, extension, external = false)
+
+    private fun create(label: String, extension: String, external: Boolean): File {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val directory = context.getExternalFilesDir(null) ?: context.cacheDir
+        val directory = if (external) {
+            context.getExternalFilesDir(null) ?: context.cacheDir
+        } else {
+            context.filesDir
+        }
 
         directory.mkdirs()
         check(directory.isDirectory) {

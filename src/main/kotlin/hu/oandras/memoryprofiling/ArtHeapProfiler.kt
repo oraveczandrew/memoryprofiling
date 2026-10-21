@@ -17,6 +17,7 @@
 package hu.oandras.memoryprofiling
 
 import hu.oandras.memoryprofiling.internal.AllocationCounters
+import hu.oandras.memoryprofiling.internal.AsdbBackend
 import hu.oandras.memoryprofiling.internal.HprofDump
 
 /**
@@ -34,6 +35,14 @@ object ArtHeapProfiler {
      * Android 12 (API 31) or newer; the native heap works from Android 10 (API 29).
      */
     fun isHeapprofdSupported(heap: Heap = Heap.ART): Boolean = HeapprofdBackend.isSupported(heap)
+
+    /**
+     * Whether direct `.asdb` allocation capture is available in the current test process.
+     *
+     * Requires Android 9 (API 28) or newer and a `debuggable` test APK; `profileable` alone is not
+     * enough for JVMTI agents.
+     */
+    fun isAsdbSupported(): Boolean = AsdbBackend.isSupported()
 
     /**
      * Records Perfetto `heapprofd` samples while [block] runs.
@@ -59,6 +68,22 @@ object ArtHeapProfiler {
      * Counters are global to the process, so the test harness allocations are included.
      */
     fun measureCounters(block: () -> Unit): CounterResult = AllocationCounters.measure(block)
+
+    /**
+     * Records every (or every Nth) ART allocation with its call stack while [block] runs, and
+     * writes an Android Studio memory-profiler `.asdb` database on device.
+     *
+     * This uses a JVMTI agent, so the test APK must be `debuggable`; it must not be combined with
+     * `BenchmarkRule` timing runs. Prefer [record] when sampling is acceptable, because full
+     * tracking unwinds a stack for every allocation.
+     *
+     * @throws IllegalStateException if the process is not debuggable or the agent cannot attach.
+     */
+    fun recordAsdb(
+        label: String,
+        config: AsdbConfig = AsdbConfig(),
+        block: () -> Unit,
+    ): ProfileResult = AsdbBackend.record(label, config, block)
 
     /**
      * Writes an HPROF heap dump of the current process.

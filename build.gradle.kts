@@ -23,10 +23,24 @@ android {
 
     compileSdk = 37
     buildToolsVersion = "37.0.0"
+    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++17"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildTypes {
@@ -53,6 +67,12 @@ android {
 
     lint {
         targetSdk = 37
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     testOptions {

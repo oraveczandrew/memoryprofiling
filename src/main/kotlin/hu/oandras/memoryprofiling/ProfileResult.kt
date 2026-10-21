@@ -23,6 +23,9 @@ enum class ProfileKind {
 
     /** Android HPROF heap dump (live objects only). */
     HPROF,
+
+    /** Android Studio memory-profiler allocation capture (`.asdb`). */
+    ASDB,
 }
 
 /**
