@@ -86,11 +86,11 @@ internal object NativeAllocAgent {
         if (loaded) {
             return
         }
-        loaded = true
         loadError = try {
             val file = resolveAgentFile(context)
             System.load(file.absolutePath)
             agentFile = file
+            loaded = true
             null
         } catch (e: Throwable) {
             e

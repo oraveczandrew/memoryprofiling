@@ -19,10 +19,32 @@ package hu.oandras.memoryprofiling.internal
 import android.os.Debug
 import hu.oandras.memoryprofiling.CounterResult
 
-@Suppress("DEPRECATION")
 internal object AllocationCounters {
 
     fun measure(block: () -> Unit): CounterResult {
+        val start = runtimeSnapshot()
+        if (start != null) {
+            val startNanos = System.nanoTime()
+            block()
+            val durationNanos = System.nanoTime() - startNanos
+            val end = checkNotNull(runtimeSnapshot())
+            return CounterResult(
+                allocatedCount = end.count - start.count,
+                allocatedBytes = end.bytes - start.bytes,
+                durationNanos = durationNanos,
+            )
+        }
+        return legacyMeasure(block)
+    }
+
+    private fun runtimeSnapshot(): Snapshot? {
+        val objects = Debug.getRuntimeStat("art.gc.objects-allocated")?.toLongOrNull() ?: return null
+        val bytes = Debug.getRuntimeStat("art.gc.bytes-allocated")?.toLongOrNull() ?: return null
+        return Snapshot(objects, bytes)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun legacyMeasure(block: () -> Unit): CounterResult {
         Debug.startAllocCounting()
         try {
             Debug.resetGlobalAllocCount()
@@ -41,4 +63,6 @@ internal object AllocationCounters {
             Debug.stopAllocCounting()
         }
     }
+
+    private data class Snapshot(@JvmField val count: Long, @JvmField val bytes: Long)
 }

@@ -35,7 +35,7 @@
 
 namespace {
 
-constexpr size_t kMaxBufferedEvents = 2'000'000;
+constexpr size_t kMaxBufferedEvents = 250'000;
 
 struct ClassRec {
     uint32_t id;
@@ -116,7 +116,7 @@ struct CallbackGuard {
 
 uint64_t now_ns() {
     timespec ts{};
-    clock_gettime(CLOCK_MONOTONIC, &ts);
+    clock_gettime(CLOCK_REALTIME, &ts);
     return static_cast<uint64_t>(ts.tv_sec) * 1'000'000'000ULL
            + static_cast<uint64_t>(ts.tv_nsec);
 }
@@ -474,11 +474,6 @@ Java_hu_oandras_memoryprofiling_internal_NativeAllocAgent_nativeStop(JNIEnv*, jc
 extern "C" JNIEXPORT jboolean JNICALL
 Java_hu_oandras_memoryprofiling_internal_NativeAllocAgent_nativeIsAttached(JNIEnv*, jclass) {
     return g_attached.load() ? JNI_TRUE : JNI_FALSE;
-}
-
-extern "C" JNIEXPORT jboolean JNICALL
-Java_hu_oandras_memoryprofiling_internal_NativeAllocAgent_nativeIsRecording(JNIEnv*, jclass) {
-    return g_recording.load() ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT jlong JNICALL

@@ -34,9 +34,12 @@ enum class ProfileKind {
  * @property label Caller-provided label.
  * @property path Absolute path of the produced artifact.
  * @property kind Artifact kind.
+ * @property droppedAllocations Allocations discarded because the native buffer was full. Only
+ * `.asdb` captures can report drops. A non-zero value means the capture is incomplete.
  */
 data class ProfileResult(
     @JvmField val label: String,
     @JvmField val path: String,
     @JvmField val kind: ProfileKind,
+    @JvmField val droppedAllocations: Long,
 )

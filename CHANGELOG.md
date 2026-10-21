@@ -16,7 +16,7 @@ follow [Semantic Versioning](https://semver.org/).
 - Sample application demonstrating `.asdb` capture while parsing an SVG map.
 - `Context` overloads of `isAsdbSupported` and `recordAsdb` for debuggable
   applications outside instrumentation tests.
-- Host-side unit tests for protobuf encoding and heapprofd configuration.
+- Host-side unit tests for protobuf encoding, heapprofd configuration, and the native buffer reader.
 - Instrumentation tests for unsupported API levels, invalid configuration,
   workload exception propagation, and repeated captures.
 
@@ -28,9 +28,12 @@ follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `.asdb` allocation and context rows now use the same wall-clock timestamp domain.
+- Captures expose `droppedAllocations`, and dropped events are logged as a warning.
+- Overloaded methods get distinct metadata entries, so their line numbers are correct.
 - An empty capture is now reported as a failure instead of a successful result.
 - Concurrent `.asdb` captures now fail fast instead of splitting the native buffer.
-- Overloaded methods now get distinct metadata entries, so stack line numbers are correct.
+- The native buffer cap is 250,000 pending events; dropped events are reported.
 - Repeated captures in the same process now emit complete class, method, stack,
   and thread metadata for every capture.
 - Changed capture configuration is applied on subsequent captures.

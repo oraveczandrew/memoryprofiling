@@ -93,6 +93,7 @@ internal object HeapprofdBackend {
             label = label,
             path = path,
             kind = ProfileKind.HEAPPROFD,
+            droppedAllocations = 0L,
         )
     }
 
@@ -135,4 +136,20 @@ internal fun heapprofdTextProto(
     }
 
 private fun escapeTextProto(value: String): String =
-    value.replace("\\", "\\\\").replace("\"", "\\\"")
+    buildString(value.length) {
+        value.forEach { c ->
+            when (c) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                else -> if (c.code < 0x20 || c.code == 0x7f) {
+                    append("\\x")
+                    append(c.code.toString(16).padStart(2, '0'))
+                } else {
+                    append(c)
+                }
+            }
+        }
+    }

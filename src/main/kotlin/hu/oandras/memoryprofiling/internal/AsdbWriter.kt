@@ -22,23 +22,12 @@ import android.os.Process
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 internal class AsdbWriter(file: File) : Closeable {
 
     private data class MethodInfo(@JvmField val classId: Int, @JvmField val name: String, @JvmField val file: String)
 
     private data class Frame(@JvmField val methodId: Int, @JvmField val line: Int)
-
-    private data class Allocation(
-        @JvmField val classId: Int,
-        @JvmField val size: Long,
-        @JvmField val length: Int,
-        @JvmField val threadId: Int,
-        @JvmField val stackId: Int,
-        @JvmField val timestampNs: Long,
-    )
 
     private val classes = LinkedHashMap<Int, String>()
     private val methods = LinkedHashMap<Int, MethodInfo>()
@@ -60,55 +49,14 @@ internal class AsdbWriter(file: File) : Closeable {
     }
 
     fun consume(data: ByteArray) {
-        val buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
-
-        val classCount = buffer.getInt()
-        repeat(classCount) {
-            val id = buffer.getInt()
-            classes[id] = buffer.readString()
+        val batch = AsdbBufferReader.read(data)
+        batch.classes.forEach { classes[it.id] = it.name }
+        batch.methods.forEach { methods[it.id] = MethodInfo(it.classId, it.name, it.file) }
+        batch.stacks.forEach { stack ->
+            stacks[stack.id] = stack.frames.map { Frame(it.methodId, it.line) }
         }
-        val methodCount = buffer.getInt()
-        repeat(methodCount) {
-            val id = buffer.getInt()
-            val classId = buffer.getInt()
-            val name = buffer.readString()
-            val file = buffer.readString()
-            methods[id] = MethodInfo(classId, name, file)
-        }
-        val stackCount = buffer.getInt()
-        repeat(stackCount) {
-            val id = buffer.getInt()
-            val frameCount = buffer.getInt()
-            val frames = ArrayList<Frame>(frameCount)
-            repeat(frameCount) {
-                frames.add(Frame(buffer.getInt(), buffer.getInt()))
-            }
-            stacks[id] = frames
-        }
-        val threadCount = buffer.getInt()
-        repeat(threadCount) {
-            val id = buffer.getInt()
-            buffer.getLong()
-            threads[id] = buffer.readString()
-        }
-
-        val allocationCount = buffer.getInt()
-        val allocations = ArrayList<Allocation>(allocationCount)
-        repeat(allocationCount) {
-            allocations.add(
-                Allocation(
-                    classId = buffer.getInt(),
-                    size = buffer.getLong(),
-                    length = buffer.getInt(),
-                    threadId = buffer.getInt(),
-                    stackId = buffer.getInt(),
-                    timestampNs = buffer.getLong(),
-                ),
-            )
-        }
-        buffer.getLong()
-
-        writeEvents(allocations)
+        batch.threads.forEach { threads[it.id] = it.name }
+        writeEvents(batch.allocations)
     }
 
     fun finish() {
@@ -172,7 +120,7 @@ internal class AsdbWriter(file: File) : Closeable {
         insertRow(408, System.currentTimeMillis() * 1_000_000L, event.toByteArray())
     }
 
-    private fun writeEvents(allocations: List<Allocation>) {
+    private fun writeEvents(allocations: List<NativeAllocation>) {
         for (chunk in allocations.chunked(MAX_EVENTS_PER_ROW)) {
             val batch = ProtoWriter()
             batch.long(1, chunk.first().timestampNs)
@@ -211,13 +159,6 @@ internal class AsdbWriter(file: File) : Closeable {
         values.put("Timestamp", timestamp)
         values.put("Data", data)
         db.insertOrThrow("UnifiedEventsTable", null, values)
-    }
-
-    private fun ByteBuffer.readString(): String {
-        val length = int
-        val bytes = ByteArray(length)
-        get(bytes)
-        return String(bytes, Charsets.UTF_8)
     }
 
     private companion object {

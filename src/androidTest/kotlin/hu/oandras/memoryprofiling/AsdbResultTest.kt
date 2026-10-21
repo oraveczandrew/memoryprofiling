@@ -133,6 +133,35 @@ class AsdbResultTest {
 
     @SdkSuppress(minSdkVersion = 28)
     @Test
+    fun kind408AndKind409TimestampsShareEpochDomain() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+        val capture = ArtHeapProfiler.recordAsdb(context, "timestamps") { allocate() }
+        assertTrue("Expected Success, got $capture", capture is AsdbCaptureResult.Success)
+
+        val file = File((capture as AsdbCaptureResult.Success).profile.path)
+        var contextsTimestamp = 0L
+        var eventsTimestamp = 0L
+        SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            db.rawQuery("SELECT Kind, Timestamp FROM UnifiedEventsTable ORDER BY Kind", null).use { c ->
+                while (c.moveToNext()) {
+                    when (c.getInt(0)) {
+                        408 -> contextsTimestamp = c.getLong(1)
+                        409 -> eventsTimestamp = c.getLong(1)
+                    }
+                }
+            }
+        }
+
+        val now = System.currentTimeMillis() * 1_000_000L
+        assertTrue("Kind 408 timestamp is not epoch-based: $contextsTimestamp", contextsTimestamp > 0L)
+        assertTrue("Kind 409 timestamp is not epoch-based: $eventsTimestamp", eventsTimestamp > 0L)
+        assertTrue("Timestamps are more than a minute from now", kotlin.math.abs(now - contextsTimestamp) < 60_000_000_000L)
+        assertTrue("Kind 408 and 409 timestamps are in different domains", kotlin.math.abs(contextsTimestamp - eventsTimestamp) < 60_000_000_000L)
+    }
+
+    @SdkSuppress(minSdkVersion = 28)
+    @Test
     fun overloadsGetDistinctMethodIds() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
 

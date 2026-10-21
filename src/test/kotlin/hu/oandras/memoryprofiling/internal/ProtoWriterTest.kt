@@ -52,6 +52,25 @@ class ProtoWriterTest {
     }
 
     @Test
+    fun writesNegativeIntAsTenByteVarint() {
+        val writer = ProtoWriter()
+        writer.int(1, -1)
+
+        val bytes = writer.toByteArray()
+        assertEquals(11, bytes.size)
+        assertEquals(0x08, bytes[0].toInt())
+        assertEquals(0x01, bytes[10].toInt())
+    }
+
+    @Test
+    fun writesFieldNumbersAboveFifteen() {
+        val writer = ProtoWriter()
+        writer.int(16, 1)
+
+        assertArrayEquals(byteArrayOf(0x80.toByte(), 0x01, 0x01), writer.toByteArray())
+    }
+
+    @Test
     fun writesLargeLongVarint() {
         val writer = ProtoWriter()
         writer.long(1, Long.MAX_VALUE)

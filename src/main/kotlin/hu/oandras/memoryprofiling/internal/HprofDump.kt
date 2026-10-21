@@ -34,7 +34,12 @@ internal object HprofDump {
         }
 
         OutputFiles.report(file)
-        return ProfileResult(label = label, path = file.absolutePath, kind = ProfileKind.HPROF)
+        return ProfileResult(
+            label = label,
+            path = file.absolutePath,
+            kind = ProfileKind.HPROF,
+            droppedAllocations = 0L,
+        )
     }
 }
 
@@ -75,6 +80,10 @@ internal object OutputFiles {
         return File(directory, "${sanitize(label)}_${System.currentTimeMillis()}.$extension")
     }
 
+    /**
+     * Registers [file] as additional test output. Does nothing when called outside an
+     * instrumentation run, which is expected for the `Context` overloads.
+     */
     fun report(file: File) {
         val instrumentation = try {
             InstrumentationRegistry.getInstrumentation()

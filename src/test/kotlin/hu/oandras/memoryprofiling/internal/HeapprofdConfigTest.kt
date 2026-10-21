@@ -44,6 +44,16 @@ class HeapprofdConfigTest {
         HeapprofdConfig(shmemSizeBytes = 4_096)
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsNegativeDumpInterval() {
+        HeapprofdConfig(dumpIntervalMs = -1)
+    }
+
+    @Test
+    fun acceptsMinimumPowerOfTwoShmem() {
+        HeapprofdConfig(shmemSizeBytes = 8_192)
+    }
+
     @Test
     fun writesSelectedHeapsAndEscapesProcessName() {
         val proto = heapprofdTextProto(
@@ -55,6 +65,17 @@ class HeapprofdConfigTest {
         assertTrue(proto.contains("process_cmdline: \"my\\\"app\\\\name\""))
         assertTrue(proto.contains("heaps: \"com.android.art\""))
         assertTrue(proto.contains("heaps: \"libc.malloc\""))
+    }
+
+    @Test
+    fun escapesControlCharactersInProcessName() {
+        val proto = heapprofdTextProto(
+            processName = "app\nname\twith\u0001control\r",
+            config = HeapprofdConfig(),
+            includeHeaps = false,
+        )
+
+        assertTrue(proto.contains("process_cmdline: \"app\\nname\\twith\\x01control\\r\""))
     }
 
     @Test

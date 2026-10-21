@@ -42,25 +42,40 @@ allocation counters, and live-heap dumps.
 
 ## Installation
 
-Releases are distributed as AAR files on the GitHub Releases page. Download the
-AAR for the release you need, place it under `libs/`, and add it as an
-instrumentation-test dependency:
+JitPack is the recommended way to consume a release, because it resolves the
+library's transitive dependencies automatically. Add the JitPack repository and
+the dependency:
+
+```kotlin
+repositories {
+    maven("https://jitpack.io")
+}
+
+dependencies {
+    androidTestImplementation("com.github.oraveczandrew:memoryprofiling:<tag>")
+}
+```
+
+The `Context` overloads can also be used from a debuggable application, but
+artifacts are then not reported to a test runner.
+
+### Raw AAR
+
+Release AARs are attached to GitHub Releases. A raw AAR carries no POM, so add
+its runtime dependencies manually:
 
 ```kotlin
 androidTestImplementation(files("libs/android-memory-profiling-test-utils-<version>.aar"))
+androidTestImplementation("androidx.benchmark:benchmark-common:1.6.0-alpha01")
+androidTestImplementation("androidx.benchmark:benchmark-traceprocessor:1.6.0-alpha01")
+androidTestImplementation("androidx.test:monitor:1.9.0-alpha02")
 ```
 
+Consumers of the raw AAR need `compileSdk = 37`, matching the AAR metadata.
 The AAR contains `liballoc_agent.so` for `arm64-v8a`, `armeabi-v7a`, `x86` and
-`x86_64`. Most projects need only the `androidTestImplementation` dependency;
-the `Context` overloads also work in a debuggable application, but artifacts are
-then not reported to a test runner.
+`x86_64`.
 
-If the GitHub repository is named `memoryprofiling`, the same artifact is also
-available from JitPack:
-
-```kotlin
-androidTestImplementation("com.github.oraveczandrew:memoryprofiling:<tag>")
-```
+### Project dependency
 
 You can also consume the repository as a Git submodule and add it as a project
 dependency:
@@ -97,6 +112,8 @@ fun captureAllocations() {
   stack capture.
 - The `.asdb` file is written to the test application's `context.filesDir` and
   registered as an additional test output.
+- `capture.profile.droppedAllocations` is non-zero when the native buffer filled
+  up; the capture is still returned, but those allocation events are missing.
 - The target process must be `debuggable`; `profileable` alone is not enough for
   JVMTI. The test must not run inside `BenchmarkRule` timing.
 
@@ -170,7 +187,8 @@ finishes.
 
 ## How `.asdb` capture works
 
-- A JVMTI agent receives `VMObjectAlloc` events and buffers per-thread records.
+- A JVMTI agent receives `VMObjectAlloc` events and buffers per-thread records
+  (up to 250,000 pending events; excess events are counted as dropped).
 - The agent samples every Nth allocation when `sampleEvery` is greater than one 
   and unwinds the requested number of frames.
 - A background thread drains the native buffer into an SQLite writer.

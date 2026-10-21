@@ -19,7 +19,6 @@
 package hu.oandras.memoryprofiling
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.RequiresDevice
 import androidx.test.filters.SdkSuppress
 import java.io.DataInputStream
 import java.io.File
@@ -42,7 +41,6 @@ class ArtHeapProfilerSmokeTest {
         assertTrue(result.durationNanos > 0L)
     }
 
-    @RequiresDevice
     @SdkSuppress(minSdkVersion = 31)
     @Test
     fun heapprofdRecordsTrace() {
@@ -58,7 +56,6 @@ class ArtHeapProfilerSmokeTest {
         assertTrue("Empty heapprofd trace at ${result.path}", trace.length() > 0L)
     }
 
-    @RequiresDevice
     @SdkSuppress(minSdkVersion = 29)
     @Test
     fun heapprofdRecordsNativeTrace() {

@@ -26,7 +26,10 @@ survive to the end of the block. This is the only exact per-allocation backend.
 - The file is written to `context.filesDir` and reported as an additional test
   output when called from an instrumentation test. The `Context` overload also
   works in a debuggable application.
-- Not reentrant; do not nest captures or combine with `BenchmarkRule`.
+- Not reentrant; concurrent or nested captures fail immediately.
+- The native buffer holds up to 250,000 events; anything beyond that is counted
+  in `ProfileResult.droppedAllocations` and logged as a warning.
+- Kind 408 and kind 409 rows use the same wall-clock timestamp domain.
 
 ## heapprofd (`record`)
 

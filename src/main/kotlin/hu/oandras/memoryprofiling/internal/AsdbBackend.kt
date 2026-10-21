@@ -20,6 +20,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.database.sqlite.SQLiteDatabase
 import android.os.Build
+import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import hu.oandras.memoryprofiling.AsdbConfig
 import hu.oandras.memoryprofiling.ProfileKind
@@ -180,7 +181,19 @@ internal object AsdbBackend {
         } catch (t: Throwable) {
             throw AsdbCaptureException("Unable to report the .asdb capture.", t)
         }
-        return ProfileResult(label = label, path = file.absolutePath, kind = ProfileKind.ASDB)
+        val dropped = NativeAllocAgent.droppedEvents()
+        if (dropped > 0L) {
+            Log.w(
+                "ArtHeapProfiler",
+                "The .asdb capture dropped $dropped allocation events because the buffer was full.",
+            )
+        }
+        return ProfileResult(
+            label = label,
+            path = file.absolutePath,
+            kind = ProfileKind.ASDB,
+            droppedAllocations = dropped,
+        )
     }
 
     private fun unsupportedMessage(context: Context): String = when {
