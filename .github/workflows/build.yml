@@ -1,5 +1,7 @@
 name: build
+
 on: [push, pull_request]
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,4 +12,4 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v3
-      - run: ./gradlew :assembleDebug :lintDebug
+      - run: ./gradlew :assembleDebug :lintDebug :sample:assembleDebug :sample:lintDebug

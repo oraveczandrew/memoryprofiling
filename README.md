@@ -8,24 +8,24 @@ directly into an Android Studio `.asdb` database.
 ## Why this exists
 
 Perfetto `heapprofd` samples allocations, so small or short-lived objects can be
-missed. This library adds a JVMTI agent that records allocations exactly, with
-their call stacks, and writes them into an Android Studio memory-profiler `.asdb`
+missed. This library adds a JVMTI agent that records allocations exactly with
+their call stacks and writes them into an Android Studio memory-profiler `.asdb`
 database on the device. There is no host-side conversion step: pull the file and
 open it.
 
 The library also wraps the other allocation backends used by instrumentation
 tests, so the same test suite can compare exact capture, sampled profiles,
-allocation counters and live-heap dumps.
+allocation counters, and live-heap dumps.
 
 ## Features
 
-| Backend           | What you get                             | Exact vs sampled | Min API | Process requirement    | Artifact     |
-|-------------------|------------------------------------------|------------------|---------|------------------------|--------------|
-| `.asdb` (JVMTI)   | Per-allocation records with stack traces | Exact            | 28      | `debuggable`           | `.asdb`      |
-| heapprofd (ART)   | Sampled ART heap profile                 | Sampled          | 31      | `profileable`/debuggable | `.perfetto-trace` |
-| heapprofd (native)| Sampled native heap profile              | Sampled          | 29      | `profileable`/debuggable | `.perfetto-trace` |
-| Counters          | Exact process-wide allocation totals     | Exact totals     | 26      | none                   | in memory    |
-| HPROF             | Live-object heap dump                    | Snapshot         | 26      | none                   | `.hprof`     |
+| Backend            | What you get                             | Exact vs sampled | Min API | Process requirement      | Artifact          |
+|--------------------|------------------------------------------|------------------|---------|--------------------------|-------------------|
+| `.asdb` (JVMTI)    | Per-allocation records with stack traces | Exact            | 28      | `debuggable`             | `.asdb`           |
+| heapprofd (ART)    | Sampled ART heap profile                 | Sampled          | 31      | `profileable`/debuggable | `.perfetto-trace` |
+| heapprofd (native) | Sampled native heap profile              | Sampled          | 29      | `profileable`/debuggable | `.perfetto-trace` |
+| Counters           | Exact process-wide allocation totals     | Exact totals     | 26      | none                     | in memory         |
+| HPROF              | Live-object heap dump                    | Snapshot         | 26      | none                     | `.hprof`          |
 
 ## Requirements
 
@@ -77,7 +77,7 @@ fun captureAllocations() {
 - `stackDepth` limits the number of stored frames per allocation; `0` disables
   stack capture.
 - The `.asdb` file is written to the test application's `context.filesDir` and
-  registered as additional test output.
+  registered as an additional test output.
 - The target process must be `debuggable`; `profileable` alone is not enough for
   JVMTI. The test must not run inside `BenchmarkRule` timing.
 
@@ -97,7 +97,7 @@ fun sampleArtHeap() {
 ```
 
 Use `HeapprofdConfig` to change the sampling interval, shared memory size,
-dump interval, blocking behavior or target process. On Android 10 and 11 only
+dump interval, blocking behavior, or target process. On Android 10 and 11 only
 `Heap.NATIVE` is available; ART heap sampling needs API 31.
 
 ## Quick start: allocation counters
@@ -125,7 +125,7 @@ included.
 ## Opening the results
 
 - `.asdb`: Android Studio **View > Tool Windows > Profiler**, then open the
-  memory profiler and load the `.asdb` file. It is a SQLite database; see
+  memory profiler and load the `.asdb` file. It is an SQLite database; see
   [docs/ASDB_FORMAT.md](docs/ASDB_FORMAT.md) for its schema.
 - heapprofd: open the Perfetto trace in the [Perfetto UI](https://ui.perfetto.dev)
   (the `android.heapprofd` data source).
@@ -139,11 +139,11 @@ finishes.
 ## How `.asdb` capture works
 
 - A JVMTI agent receives `VMObjectAlloc` events and buffers per-thread records.
-- The agent samples every Nth allocation when `sampleEvery` is greater than one,
+- The agent samples every Nth allocation when `sampleEvery` is greater than one 
   and unwinds the requested number of frames.
-- A background thread drains the native buffer into a SQLite writer.
+- A background thread drains the native buffer into an SQLite writer.
 - The writer emits protobuf payloads into `UnifiedEventsTable`:
-  kind 408 for classes, methods, stacks and threads; kind 409 for allocation
+  kind 408 for classes, methods, stacks, and threads; kind 409 for allocation
   events.
 - The result is a database that Android Studio's memory profiler can open
   directly.
@@ -169,7 +169,7 @@ finishes.
 ```
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the module layout, the JVMTI
-setup and how to inspect a captured `.asdb` with `sqlite3`.
+setup, and how to inspect a captured `.asdb` with `sqlite3`.
 
 ## License
 
