@@ -16,6 +16,7 @@
 
 package hu.oandras.memoryprofiling.internal
 
+import android.content.Context
 import android.content.pm.ApplicationInfo
 import androidx.test.platform.app.InstrumentationRegistry
 import hu.oandras.memoryprofiling.AsdbConfig
@@ -28,21 +29,25 @@ internal object AsdbBackend {
 
     private const val POLL_INTERVAL_MS = 25L
 
-    fun isSupported(): Boolean {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        return NativeAllocAgent.isAvailable() &&
+    fun isSupported(): Boolean =
+        isSupported(InstrumentationRegistry.getInstrumentation().targetContext)
+
+    fun isSupported(context: Context): Boolean =
+        NativeAllocAgent.isAvailable(context) &&
             context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
-    }
 
     @androidx.annotation.RequiresApi(28)
-    fun record(label: String, config: AsdbConfig, block: () -> Unit): ProfileResult {
+    fun record(label: String, config: AsdbConfig, block: () -> Unit): ProfileResult =
+        record(InstrumentationRegistry.getInstrumentation().targetContext, label, config, block)
+
+    @androidx.annotation.RequiresApi(28)
+    fun record(context: Context, label: String, config: AsdbConfig, block: () -> Unit): ProfileResult {
         require(config.sampleEvery > 0) { "sampleEvery must be at least 1." }
         require(config.stackDepth in 0..256) { "stackDepth must be between 0 and 256." }
 
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
         NativeAllocAgent.attach(context, config.sampleEvery, config.stackDepth)
 
-        val file = OutputFiles.createInternal(label, "asdb")
+        val file = OutputFiles.createInternal(context, label, "asdb")
         val writer = AsdbWriter(file)
         val stop = AtomicBoolean(false)
         val writerFailure = AtomicReference<Throwable?>()

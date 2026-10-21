@@ -24,7 +24,8 @@ survive to the end of the block. This is the only exact per-allocation backend.
 - Records one out of every `sampleEvery` allocations; `1` means all of them.
 - `stackDepth` controls how many frames are stored (`0` disables stacks).
 - The file is written to `context.filesDir` and reported as an additional test
-  output.
+  output when called from an instrumentation test. The `Context` overload also
+  works in a debuggable application.
 - Not reentrant; do not nest captures or combine with `BenchmarkRule`.
 
 ## heapprofd (`record`)

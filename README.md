@@ -43,16 +43,17 @@ allocation counters, and live-heap dumps.
 ## Installation
 
 Releases are distributed as AAR files on the GitHub Releases page. Download the
-AAR for the release you need, place it under `libs/`, and add it as a test-only
-dependency:
+AAR for the release you need, place it under `libs/`, and add it as an
+instrumentation-test dependency:
 
 ```kotlin
 androidTestImplementation(files("libs/android-memory-profiling-test-utils-0.1.0.aar"))
 ```
 
 The AAR contains `liballoc_agent.so` for `arm64-v8a`, `armeabi-v7a`, `x86` and
-`x86_64`. Do not add the library to `implementation`; it is meant for
-instrumentation tests.
+`x86_64`. Most projects need only the `androidTestImplementation` dependency;
+the `Context` overloads also work in a debuggable application, but artifacts are
+then not reported to a test runner.
 
 If the GitHub repository is named `memoryprofiling`, the same artifact is also
 available from JitPack:
@@ -94,6 +95,16 @@ fun captureAllocations() {
   registered as an additional test output.
 - The target process must be `debuggable`; `profileable` alone is not enough for
   JVMTI. The test must not run inside `BenchmarkRule` timing.
+
+To capture from a debuggable application instead of a test, pass a `Context`:
+
+```kotlin
+val result = ArtHeapProfiler.recordAsdb(context, "parser") {
+    parser.parse(input)
+}
+```
+
+The file is written to `context.filesDir` and returned in `result.path`.
 
 ## Quick start: heapprofd
 

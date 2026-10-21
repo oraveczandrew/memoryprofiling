@@ -16,16 +16,18 @@
 
 package hu.oandras.memoryprofiling
 
+import android.content.Context
 import hu.oandras.memoryprofiling.internal.AllocationCounters
 import hu.oandras.memoryprofiling.internal.AsdbBackend
 import hu.oandras.memoryprofiling.internal.HeapprofdBackend
 import hu.oandras.memoryprofiling.internal.HprofDump
 
 /**
- * Test-only ART heap profiling.
+ * ART heap profiling.
  *
- * All entry points must be called from an instrumentation test process. Artifacts are written to
- * a shell-accessible directory and reported to the test runner as additional test output.
+ * The no-argument `.asdb` entry points must be called from an instrumentation test process.
+ * Prefer them in tests: artifacts are reported to the test runner as additional test output.
+ * The `Context` overloads also work in any debuggable application.
  */
 object ArtHeapProfiler {
 
@@ -44,6 +46,13 @@ object ArtHeapProfiler {
      * enough for JVMTI agents.
      */
     fun isAsdbSupported(): Boolean = AsdbBackend.isSupported()
+
+    /**
+     * Whether direct `.asdb` allocation capture is available for [context]'s process.
+     *
+     * Unlike [isAsdbSupported], this can be called outside an instrumentation test.
+     */
+    fun isAsdbSupported(context: Context): Boolean = AsdbBackend.isSupported(context)
 
     /**
      * Records Perfetto `heapprofd` samples while [block] runs.
@@ -86,6 +95,21 @@ object ArtHeapProfiler {
         config: AsdbConfig = AsdbConfig(),
         block: () -> Unit,
     ): ProfileResult = AsdbBackend.record(label, config, block)
+
+    /**
+     * Like [recordAsdb], but writes into [context]'s internal files directory and does not require
+     * an instrumentation test. The file is returned in [ProfileResult.path] but is not reported to
+     * a test runner.
+     *
+     * The application must still be `debuggable` for the JVMTI agent to attach.
+     */
+    @androidx.annotation.RequiresApi(28)
+    fun recordAsdb(
+        context: Context,
+        label: String,
+        config: AsdbConfig = AsdbConfig(),
+        block: () -> Unit,
+    ): ProfileResult = AsdbBackend.record(context, label, config, block)
 
     /**
      * Writes an HPROF heap dump of the current process.

@@ -22,7 +22,6 @@ import android.os.Build
 import android.os.Debug
 import android.os.Process
 import androidx.annotation.RequiresApi
-import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -36,11 +35,11 @@ internal object NativeAllocAgent {
     private var loaded = false
     private var agentFile: File? = null
 
-    fun isAvailable(): Boolean {
+    fun isAvailable(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
             return false
         }
-        ensureLoaded()
+        ensureLoaded(context)
         return loadError == null
     }
 
@@ -53,7 +52,7 @@ internal object NativeAllocAgent {
             "JVMTI allocation tracking requires a debuggable test APK. Run the test on a " +
                 "debuggable build variant."
         }
-        ensureLoaded()
+        ensureLoaded(context)
         loadError?.let { throw IllegalStateException("Unable to load the allocation agent.", it) }
 
         if (nativeIsAttached()) {
@@ -82,13 +81,12 @@ internal object NativeAllocAgent {
         check(nativeIsAttached()) { "The JVMTI allocation agent did not attach." }
     }
 
-    private fun ensureLoaded() {
+    private fun ensureLoaded(context: Context) {
         if (loaded) {
             return
         }
         loaded = true
         loadError = try {
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
             val file = resolveAgentFile(context)
             System.load(file.absolutePath)
             agentFile = file

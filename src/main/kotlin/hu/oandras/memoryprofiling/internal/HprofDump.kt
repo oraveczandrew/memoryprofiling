@@ -16,6 +16,7 @@
 
 package hu.oandras.memoryprofiling.internal
 
+import android.content.Context
 import android.os.Debug
 import androidx.test.platform.app.InstrumentationRegistry
 import hu.oandras.memoryprofiling.ProfileKind
@@ -46,10 +47,20 @@ internal object OutputFiles {
         create(label, extension, external = true)
 
     fun createInternal(label: String, extension: String): File =
-        create(label, extension, external = false)
+        createInternal(InstrumentationRegistry.getInstrumentation().targetContext, label, extension)
 
-    private fun create(label: String, extension: String, external: Boolean): File {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
+    fun createInternal(context: Context, label: String, extension: String): File =
+        create(context, label, extension, external = false)
+
+    private fun create(label: String, extension: String, external: Boolean): File =
+        create(InstrumentationRegistry.getInstrumentation().targetContext, label, extension, external)
+
+    private fun create(
+        context: Context,
+        label: String,
+        extension: String,
+        external: Boolean,
+    ): File {
         val directory = if (external) {
             context.getExternalFilesDir(null) ?: context.cacheDir
         } else {
@@ -65,10 +76,15 @@ internal object OutputFiles {
     }
 
     fun report(file: File) {
+        val instrumentation = try {
+            InstrumentationRegistry.getInstrumentation()
+        } catch (e: IllegalStateException) {
+            return
+        }
         val bundle = android.os.Bundle().apply {
             putString("$RESULT_KEY_PREFIX${file.name}", file.absolutePath)
         }
-        InstrumentationRegistry.getInstrumentation().sendStatus(IN_PROGRESS_STATUS, bundle)
+        instrumentation.sendStatus(IN_PROGRESS_STATUS, bundle)
     }
 
     private fun sanitize(label: String): String =

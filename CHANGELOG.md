@@ -6,6 +6,16 @@ follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- `Context` overloads of `isAsdbSupported` and `recordAsdb` for debuggable
+  applications outside instrumentation tests.
+
+### Fixed
+
+- The sample application now captures allocations on launch and handles window
+  insets and system bar appearance.
+
 ## 0.1.0
 
 ### Added

@@ -18,12 +18,12 @@ package hu.oandras.memoryprofiling.sample
 
 import android.content.res.Configuration
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
@@ -33,7 +33,6 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.core.graphics.drawable.toDrawable
 
 class MainActivity : ComponentActivity() {
 
@@ -67,8 +66,10 @@ class MainActivity : ComponentActivity() {
         }
         setContentView(status)
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-            status.text = "Allocation capture requires Android 9 or newer."
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P ||
+            !ArtHeapProfiler.isAsdbSupported(this)
+        ) {
+            status.text = "Allocation capture requires Android 9 or newer and a debuggable app."
             return
         }
 
@@ -76,27 +77,20 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val text = withContext(Dispatchers.IO) {
                 try {
-                    val result = ArtHeapProfiler.recordAsdb("sample") {
+                    val result = ArtHeapProfiler.recordAsdb(this@MainActivity, "sample") {
                         val svg = SVG.getFromAsset(assets, "hungary_location_map.svg")
                         require(svg.documentWidth > 0f && svg.documentHeight > 0f)
                     }
 
                     val top = AsdbTopAllocations.read(File(result.path))
                     buildString {
-                        appendLine("Captured allocations: ${result.path}")
+                        appendLine("Captured allocations:")
+                        appendLine(result.path)
                         appendLine()
                         appendLine("Top ${top.size} allocated classes:")
                         top.forEachIndexed { index, allocation ->
                             appendLine("${index + 1}. ${allocation.className}: ${allocation.count}")
                         }
-                    }
-                } catch (e: IllegalStateException) {
-                    if (e.message?.contains("instrumentation", ignoreCase = true) == true) {
-                        "Capture requires an instrumentation test.\n\n" +
-                            "Run SvgMapCaptureTest from Android Studio or with " +
-                            "`./gradlew :sample:connectedDebugAndroidTest`."
-                    } else {
-                        "Capture failed: ${e.message}"
                     }
                 } catch (e: Exception) {
                     "Capture failed: ${e.message}"
