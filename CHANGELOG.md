@@ -11,6 +11,12 @@ follow [Semantic Versioning](https://semver.org/).
 - `Context` overloads of `isAsdbSupported` and `recordAsdb` for debuggable
   applications outside instrumentation tests.
 
+### Changed
+
+- `recordAsdb` can now be called on every API level and returns a sealed
+  `AsdbCaptureResult` (`Success`/`NotSupported`/`Failure`) instead of throwing on
+  capture errors.
+
 ### Fixed
 
 - The sample application now captures allocations on launch and handles window

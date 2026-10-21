@@ -18,6 +18,7 @@ package hu.oandras.memoryprofiling.internal
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.os.Build
 import androidx.test.platform.app.InstrumentationRegistry
 import hu.oandras.memoryprofiling.AsdbConfig
 import hu.oandras.memoryprofiling.ProfileKind
@@ -30,25 +31,52 @@ internal object AsdbBackend {
     private const val POLL_INTERVAL_MS = 25L
 
     fun isSupported(): Boolean =
-        isSupported(InstrumentationRegistry.getInstrumentation().targetContext)
+        try {
+            isSupported(InstrumentationRegistry.getInstrumentation().targetContext)
+        } catch (e: IllegalStateException) {
+            false
+        }
 
     fun isSupported(context: Context): Boolean =
         NativeAllocAgent.isAvailable(context) &&
             context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
-    @androidx.annotation.RequiresApi(28)
-    fun record(label: String, config: AsdbConfig, block: () -> Unit): ProfileResult =
-        record(InstrumentationRegistry.getInstrumentation().targetContext, label, config, block)
+    fun record(label: String, config: AsdbConfig, block: () -> Unit): ProfileResult {
+        val context = try {
+            InstrumentationRegistry.getInstrumentation().targetContext
+        } catch (e: IllegalStateException) {
+            throw AsdbCaptureException(
+                "The no-argument recordAsdb requires an instrumentation test; " +
+                    "use the Context overload outside tests.",
+                e,
+            )
+        }
+        return record(context, label, config, block)
+    }
 
-    @androidx.annotation.RequiresApi(28)
     fun record(context: Context, label: String, config: AsdbConfig, block: () -> Unit): ProfileResult {
-        require(config.sampleEvery > 0) { "sampleEvery must be at least 1." }
-        require(config.stackDepth in 0..256) { "stackDepth must be between 0 and 256." }
+        if (!isSupported(context)) {
+            throw AsdbNotSupportedException(unsupportedMessage(context))
+        }
+        if (config.sampleEvery <= 0) {
+            throw AsdbCaptureException("sampleEvery must be at least 1.")
+        }
+        if (config.stackDepth !in 0..256) {
+            throw AsdbCaptureException("stackDepth must be between 0 and 256.")
+        }
 
         NativeAllocAgent.attach(context, config.sampleEvery, config.stackDepth)
 
-        val file = OutputFiles.createInternal(context, label, "asdb")
-        val writer = AsdbWriter(file)
+        val file = try {
+            OutputFiles.createInternal(context, label, "asdb")
+        } catch (t: Throwable) {
+            throw AsdbCaptureException("Unable to create the .asdb output file.", t)
+        }
+        val writer = try {
+            AsdbWriter(file)
+        } catch (t: Throwable) {
+            throw AsdbCaptureException("Unable to create the .asdb database.", t)
+        }
         val stop = AtomicBoolean(false)
         val writerFailure = AtomicReference<Throwable?>()
         val thread = Thread(
@@ -66,24 +94,65 @@ internal object AsdbBackend {
             "asdb-writer",
         )
 
-        NativeAllocAgent.start()
+        try {
+            NativeAllocAgent.start()
+        } catch (t: Throwable) {
+            writer.close()
+            throw AsdbCaptureException("Unable to start the allocation agent.", t)
+        }
+
+        var blockFailure: Throwable? = null
+        var finishFailure: Throwable? = null
         thread.start()
         try {
             block()
+        } catch (t: Throwable) {
+            blockFailure = t
         } finally {
             NativeAllocAgent.stop()
             stop.set(true)
-            thread.join()
-            writer.finish()
+            var interrupted = false
+            while (true) {
+                try {
+                    thread.join()
+                    break
+                } catch (e: InterruptedException) {
+                    interrupted = true
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt()
+            }
+            try {
+                writer.finish()
+            } catch (t: Throwable) {
+                finishFailure = t
+            }
+        }
+        blockFailure?.let { throw it }
+        finishFailure?.let { throw AsdbCaptureException("Unable to finish the .asdb database.", it) }
+
+        writerFailure.get()?.let { throw AsdbCaptureException("The .asdb writer failed.", it) }
+        if (!file.exists() || file.length() == 0L) {
+            throw AsdbCaptureException("The .asdb capture was not written to ${file.absolutePath}.")
         }
 
-        writerFailure.get()?.let { throw it }
-        check(file.exists() && file.length() > 0L) {
-            "The .asdb capture was not written to ${file.absolutePath}."
+        try {
+            OutputFiles.report(file)
+        } catch (t: Throwable) {
+            throw AsdbCaptureException("Unable to report the .asdb capture.", t)
         }
-
-        OutputFiles.report(file)
         return ProfileResult(label = label, path = file.absolutePath, kind = ProfileKind.ASDB)
+    }
+
+    private fun unsupportedMessage(context: Context): String = when {
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.P ->
+            "Direct .asdb capture requires Android 9 (API 28) or newer."
+
+        context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 ->
+            "Direct .asdb capture requires a debuggable app or test APK."
+
+        else -> "The JVMTI allocation agent is not available on this device."
     }
 
     private fun drainInto(writer: AsdbWriter) {

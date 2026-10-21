@@ -21,6 +21,7 @@ import androidx.test.filters.LargeTest
 import androidx.test.platform.app.InstrumentationRegistry
 import hu.oandras.ksvg.SVG
 import hu.oandras.memoryprofiling.ArtHeapProfiler
+import hu.oandras.memoryprofiling.AsdbCaptureResult
 import hu.oandras.memoryprofiling.AsdbConfig
 import java.io.File
 import org.junit.Assert.assertTrue
@@ -38,7 +39,7 @@ class SvgMapCaptureTest {
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
 
-        val result = ArtHeapProfiler.recordAsdb(
+        val capture = ArtHeapProfiler.recordAsdb(
             label = "svg-map",
             config = AsdbConfig(sampleEvery = 1, stackDepth = 16),
         ) {
@@ -46,8 +47,9 @@ class SvgMapCaptureTest {
             assertTrue(svg.documentWidth > 0f)
             assertTrue(svg.documentHeight > 0f)
         }
+        assertTrue("Capture failed: $capture", capture is AsdbCaptureResult.Success)
 
-        val file = File(result.path)
+        val file = File((capture as AsdbCaptureResult.Success).profile.path)
         assertTrue(file.length() > 0L)
 
         val top = AsdbTopAllocations.read(file)

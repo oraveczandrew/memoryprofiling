@@ -21,7 +21,6 @@ import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Debug
 import android.os.Process
-import androidx.annotation.RequiresApi
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -43,23 +42,24 @@ internal object NativeAllocAgent {
         return loadError == null
     }
 
-    @RequiresApi(28)
     fun attach(context: Context, sampleEvery: Int, stackDepth: Int) {
-        check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            "JVMTI agents require Android 9 (API 28) or newer."
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            throw AsdbCaptureException("JVMTI agents require Android 9 (API 28) or newer.")
         }
-        check(context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-            "JVMTI allocation tracking requires a debuggable test APK. Run the test on a " +
-                "debuggable build variant."
+        if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            throw AsdbCaptureException(
+                "JVMTI allocation tracking requires a debuggable app or test APK.",
+            )
         }
         ensureLoaded(context)
-        loadError?.let { throw IllegalStateException("Unable to load the allocation agent.", it) }
+        loadError?.let { throw AsdbCaptureException("Unable to load the allocation agent.", it) }
 
         if (nativeIsAttached()) {
             return
         }
 
-        val library = checkNotNull(agentFile) { "The allocation agent has no file path." }
+        val library = agentFile
+            ?: throw AsdbCaptureException("The allocation agent has no file path.")
         val options = "sampleEvery=$sampleEvery,depth=$stackDepth"
         val error = try {
             Debug.attachJvmtiAgent(
@@ -76,9 +76,11 @@ internal object NativeAllocAgent {
             e
         }
         if (error != null) {
-            throw IllegalStateException("Unable to attach the JVMTI allocation agent.", error)
+            throw AsdbCaptureException("Unable to attach the JVMTI allocation agent.", error)
         }
-        check(nativeIsAttached()) { "The JVMTI allocation agent did not attach." }
+        if (!nativeIsAttached()) {
+            throw AsdbCaptureException("The JVMTI allocation agent did not attach.")
+        }
     }
 
     private fun ensureLoaded(context: Context) {

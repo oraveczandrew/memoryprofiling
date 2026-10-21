@@ -18,7 +18,6 @@ package hu.oandras.memoryprofiling.sample
 
 import android.content.res.Configuration
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -29,6 +28,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import hu.oandras.ksvg.SVG
 import hu.oandras.memoryprofiling.ArtHeapProfiler
+import hu.oandras.memoryprofiling.AsdbCaptureResult
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -66,31 +66,31 @@ class MainActivity : ComponentActivity() {
         }
         setContentView(status)
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P ||
-            !ArtHeapProfiler.isAsdbSupported(this)
-        ) {
-            status.text = "Allocation capture requires Android 9 or newer and a debuggable app."
-            return
-        }
-
         status.text = "Capturing allocations..."
         lifecycleScope.launch {
             val text = withContext(Dispatchers.IO) {
                 try {
-                    val result = ArtHeapProfiler.recordAsdb(this@MainActivity, "sample") {
-                        val svg = SVG.getFromAsset(assets, "hungary_location_map.svg")
-                        require(svg.documentWidth > 0f && svg.documentHeight > 0f)
-                    }
-
-                    val top = AsdbTopAllocations.read(File(result.path))
-                    buildString {
-                        appendLine("Captured allocations:")
-                        appendLine(result.path)
-                        appendLine()
-                        appendLine("Top ${top.size} allocated classes:")
-                        top.forEachIndexed { index, allocation ->
-                            appendLine("${index + 1}. ${allocation.className}: ${allocation.count}")
+                    when (
+                        val capture = ArtHeapProfiler.recordAsdb(this@MainActivity, "sample") {
+                            val svg = SVG.getFromAsset(assets, "hungary_location_map.svg")
+                            require(svg.documentWidth > 0f && svg.documentHeight > 0f)
                         }
+                    ) {
+                        is AsdbCaptureResult.Success -> {
+                            val top = AsdbTopAllocations.read(File(capture.profile.path))
+                            buildString {
+                                appendLine("Captured allocations:")
+                                appendLine(capture.profile.path)
+                                appendLine()
+                                appendLine("Top ${top.size} allocated classes:")
+                                top.forEachIndexed { index, allocation ->
+                                    appendLine("${index + 1}. ${allocation.className}: ${allocation.count}")
+                                }
+                            }
+                        }
+
+                        is AsdbCaptureResult.NotSupported -> capture.message
+                        is AsdbCaptureResult.Failure -> "Capture failed: ${capture.message}"
                     }
                 } catch (e: Exception) {
                     "Capture failed: ${e.message}"

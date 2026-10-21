@@ -97,17 +97,17 @@ object AsdbTopAllocations {
     private inline fun ByteArray.forEachField(block: (Int, Long?, ByteArray?) -> Unit) {
         var position = 0
         while (position < size) {
-            val (tag, afterTag) = readVarint(position)
+            val (tag, afterTag) = readVarInt(position)
             position = afterTag
             val field = (tag ushr 3).toInt()
             when ((tag and 0x7).toInt()) {
                 0 -> {
-                    val (value, next) = readVarint(position)
+                    val (value, next) = readVarInt(position)
                     position = next
                     block(field, value, null)
                 }
                 2 -> {
-                    val (length, next) = readVarint(position)
+                    val (length, next) = readVarInt(position)
                     val end = next + length.toInt()
                     block(field, null, copyOfRange(next, end))
                     position = end
@@ -117,7 +117,7 @@ object AsdbTopAllocations {
         }
     }
 
-    private fun ByteArray.readVarint(start: Int): Pair<Long, Int> {
+    private fun ByteArray.readVarInt(start: Int): Pair<Long, Int> {
         var result = 0L
         var shift = 0
         var position = start

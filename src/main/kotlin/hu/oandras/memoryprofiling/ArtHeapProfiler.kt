@@ -19,6 +19,8 @@ package hu.oandras.memoryprofiling
 import android.content.Context
 import hu.oandras.memoryprofiling.internal.AllocationCounters
 import hu.oandras.memoryprofiling.internal.AsdbBackend
+import hu.oandras.memoryprofiling.internal.AsdbCaptureException
+import hu.oandras.memoryprofiling.internal.AsdbNotSupportedException
 import hu.oandras.memoryprofiling.internal.HeapprofdBackend
 import hu.oandras.memoryprofiling.internal.HprofDump
 
@@ -87,14 +89,14 @@ object ArtHeapProfiler {
      * `BenchmarkRule` timing runs. Prefer [record] when sampling is acceptable, because full
      * tracking unwinds a stack for every allocation.
      *
-     * @throws IllegalStateException if the process is not debuggable or the agent cannot attach.
+     * Capture failures are returned as [AsdbCaptureResult.Failure]. Exceptions thrown by [block]
+     * propagate unchanged.
      */
-    @androidx.annotation.RequiresApi(28)
     fun recordAsdb(
         label: String,
         config: AsdbConfig = AsdbConfig(),
         block: () -> Unit,
-    ): ProfileResult = AsdbBackend.record(label, config, block)
+    ): AsdbCaptureResult = captureResult { AsdbBackend.record(label, config, block) }
 
     /**
      * Like [recordAsdb], but writes into [context]'s internal files directory and does not require
@@ -102,14 +104,15 @@ object ArtHeapProfiler {
      * a test runner.
      *
      * The application must still be `debuggable` for the JVMTI agent to attach.
+     * Capture failures are returned as [AsdbCaptureResult.Failure]; exceptions thrown by [block]
+     * propagate unchanged.
      */
-    @androidx.annotation.RequiresApi(28)
     fun recordAsdb(
         context: Context,
         label: String,
         config: AsdbConfig = AsdbConfig(),
         block: () -> Unit,
-    ): ProfileResult = AsdbBackend.record(context, label, config, block)
+    ): AsdbCaptureResult = captureResult { AsdbBackend.record(context, label, config, block) }
 
     /**
      * Writes an HPROF heap dump of the current process.
@@ -118,4 +121,16 @@ object ArtHeapProfiler {
      * included. Use [record] for allocation call sites.
      */
     fun dumpHprof(label: String): ProfileResult = HprofDump.dump(label)
+
+    private inline fun captureResult(block: () -> ProfileResult): AsdbCaptureResult =
+        try {
+            AsdbCaptureResult.Success(block())
+        } catch (e: AsdbNotSupportedException) {
+            AsdbCaptureResult.NotSupported(e.message ?: "Direct .asdb capture is not supported.")
+        } catch (e: AsdbCaptureException) {
+            AsdbCaptureResult.Failure(
+                message = e.message ?: "The .asdb capture failed.",
+                cause = e.cause,
+            )
+        }
 }

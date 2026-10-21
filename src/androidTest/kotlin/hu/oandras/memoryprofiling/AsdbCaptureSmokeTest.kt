@@ -33,7 +33,7 @@ class AsdbCaptureSmokeTest {
     fun recordsAllocationsIntoAsdb() {
         assumeTrue(ArtHeapProfiler.isAsdbSupported())
 
-        val result = ArtHeapProfiler.recordAsdb(
+        val capture = ArtHeapProfiler.recordAsdb(
             label = "asdb-smoke",
             config = AsdbConfig(sampleEvery = 1, stackDepth = 16),
         ) {
@@ -43,8 +43,9 @@ class AsdbCaptureSmokeTest {
             }
             check(values.size == ALLOCATIONS)
         }
+        assertTrue("Capture failed: $capture", capture is AsdbCaptureResult.Success)
 
-        val file = File(result.path)
+        val file = File((capture as AsdbCaptureResult.Success).profile.path)
         assertTrue(file.length() > 0L)
 
         SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->

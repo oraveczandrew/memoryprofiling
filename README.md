@@ -76,14 +76,18 @@ androidTestImplementation(project(":android-memory-profiling-test-utils"))
 fun captureAllocations() {
     assumeTrue(ArtHeapProfiler.isAsdbSupported())
 
-    val result = ArtHeapProfiler.recordAsdb(
+    val capture = ArtHeapProfiler.recordAsdb(
         label = "parser",
         config = AsdbConfig(sampleEvery = 1, stackDepth = 32),
     ) {
         parser.parse(input)
     }
 
-    println(result.path)
+    when (capture) {
+        is AsdbCaptureResult.Success -> println(capture.profile.path)
+        is AsdbCaptureResult.NotSupported -> println(capture.message)
+        is AsdbCaptureResult.Failure -> println(capture.message)
+    }
 }
 ```
 
@@ -99,12 +103,15 @@ fun captureAllocations() {
 To capture from a debuggable application instead of a test, pass a `Context`:
 
 ```kotlin
-val result = ArtHeapProfiler.recordAsdb(context, "parser") {
+val capture = ArtHeapProfiler.recordAsdb(context, "parser") {
     parser.parse(input)
 }
 ```
 
-The file is written to `context.filesDir` and returned in `result.path`.
+Unsupported processes return `AsdbCaptureResult.NotSupported`, other capture
+failures return `AsdbCaptureResult.Failure`; exceptions thrown by the block
+propagate normally. The file is written to `context.filesDir` and
+returned in `Success.profile.path`.
 
 ## Quick start: heapprofd
 
