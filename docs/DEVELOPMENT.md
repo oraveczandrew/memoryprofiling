@@ -72,6 +72,16 @@ sqlite3 <file> 'SELECT Kind, COUNT(*) FROM UnifiedEventsTable GROUP BY Kind;'
 Kind 408 is the context row; kind 409 rows contain allocation events. See
 `docs/ASDB_FORMAT.md` for the protobuf layout.
 
+## Publishing a GitHub release
+
+```bash
+./gradlew :assembleRelease
+```
+
+The AAR is written to `build/outputs/aar/`. Attach it to a GitHub Release.
+Releases are the only distribution channel for now; no Maven repository is
+configured. Consumers add the AAR from `libs/` as described in the README.
+
 ## CI
 
 `.github/workflows/build.yml` runs `:assembleDebug` and `:lintDebug` on pushes

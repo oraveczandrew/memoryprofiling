@@ -17,7 +17,6 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
-    id("maven-publish")
 }
 
 android {
@@ -80,12 +79,6 @@ android {
     testOptions {
         targetSdk = libs.versions.targetSdk.get().toInt()
     }
-
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-        }
-    }
 }
 
 kotlin {
@@ -94,19 +87,6 @@ kotlin {
         languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
         apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
         freeCompilerArgs.add("-Xmetadata-version=2.2.0")
-    }
-}
-
-afterEvaluate {
-    publishing {
-        publications {
-            create<MavenPublication>("release") {
-                from(components["release"])
-                groupId = "hu.oandras"
-                artifactId = "android-memory-profiling-test-utils"
-                version = "0.1.0"
-            }
-        }
     }
 }
 

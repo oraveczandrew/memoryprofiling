@@ -3,6 +3,9 @@
 Record every ART allocation with its call stack from an instrumentation test,
 directly into an Android Studio `.asdb` database.
 
+[![Build](https://github.com/oraveczandrew/memoryprofiling/actions/workflows/build.yml/badge.svg)](https://github.com/oraveczandrew/memoryprofiling/actions/workflows/build.yml)
+[![GitHub release](https://img.shields.io/github/v/release/oraveczandrew/memoryprofiling)](https://github.com/oraveczandrew/memoryprofiling/releases)
+[![JitPack](https://jitpack.io/v/oraveczandrew/memoryprofiling.svg)](https://jitpack.io/#oraveczandrew/memoryprofiling)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 ## Why this exists
@@ -39,13 +42,24 @@ allocation counters, and live-heap dumps.
 
 ## Installation
 
-JitPack is the intended distribution channel:
+Releases are distributed as AAR files on the GitHub Releases page. Download the
+AAR for the release you need, place it under `libs/`, and add it as a test-only
+dependency:
 
 ```kotlin
-androidTestImplementation("com.github.<owner>:android-memory-profiling-test-utils:<tag>")
+androidTestImplementation(files("libs/android-memory-profiling-test-utils-0.1.0.aar"))
 ```
 
-The artifact is test-only; do not add it to `implementation`.
+The AAR contains `liballoc_agent.so` for `arm64-v8a`, `armeabi-v7a`, `x86` and
+`x86_64`. Do not add the library to `implementation`; it is meant for
+instrumentation tests.
+
+If the GitHub repository is named `memoryprofiling`, the same artifact is also
+available from JitPack:
+
+```kotlin
+androidTestImplementation("com.github.oraveczandrew:memoryprofiling:<tag>")
+```
 
 You can also consume the repository as a Git submodule and add it as a project
 dependency:
