@@ -45,6 +45,8 @@ kotlin {
 
 dependencies {
     implementation(project(":"))
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.core)
     implementation(libs.ksvg)
     implementation(libs.kotlinx.coroutines.android)
 

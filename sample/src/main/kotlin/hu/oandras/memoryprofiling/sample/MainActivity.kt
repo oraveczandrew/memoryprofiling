@@ -16,36 +16,64 @@
 
 package hu.oandras.memoryprofiling.sample
 
-import android.app.Activity
+import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import hu.oandras.ksvg.SVG
 import hu.oandras.memoryprofiling.ArtHeapProfiler
 import java.io.File
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.core.graphics.drawable.toDrawable
 
-class MainActivity : Activity() {
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
-        val status = TextView(this)
+        val darkTheme = resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        val background = if (darkTheme) Color.BLACK else Color.WHITE
+        val foreground = if (darkTheme) Color.WHITE else Color.BLACK
+        window.setBackgroundDrawable(background.toDrawable())
+
+        val status = TextView(this).apply {
+            textSize = 14f
+            setTextIsSelectable(true)
+            setTextColor(foreground)
+            setBackgroundColor(background)
+        }
+        val basePadding = (16 * resources.displayMetrics.density).toInt()
+        status.setPadding(basePadding, basePadding, basePadding, basePadding)
+        ViewCompat.setOnApplyWindowInsetsListener(status) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(
+                basePadding + bars.left,
+                basePadding + bars.top,
+                basePadding + bars.right,
+                basePadding + bars.bottom,
+            )
+            insets
+        }
         setContentView(status)
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || !ArtHeapProfiler.isAsdbSupported()) {
-            status.text = "Allocation capture is not supported on this device."
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            status.text = "Allocation capture requires Android 9 or newer."
             return
         }
 
-        scope.launch {
+        status.text = "Capturing allocations..."
+        lifecycleScope.launch {
             val text = withContext(Dispatchers.IO) {
                 try {
                     val result = ArtHeapProfiler.recordAsdb("sample") {
@@ -62,6 +90,14 @@ class MainActivity : Activity() {
                             appendLine("${index + 1}. ${allocation.className}: ${allocation.count}")
                         }
                     }
+                } catch (e: IllegalStateException) {
+                    if (e.message?.contains("instrumentation", ignoreCase = true) == true) {
+                        "Capture requires an instrumentation test.\n\n" +
+                            "Run SvgMapCaptureTest from Android Studio or with " +
+                            "`./gradlew :sample:connectedDebugAndroidTest`."
+                    } else {
+                        "Capture failed: ${e.message}"
+                    }
                 } catch (e: Exception) {
                     "Capture failed: ${e.message}"
                 }
@@ -69,10 +105,5 @@ class MainActivity : Activity() {
 
             status.text = text
         }
-    }
-
-    override fun onDestroy() {
-        scope.cancel()
-        super.onDestroy()
     }
 }
