@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-package hu.oandras.memoryprofiling
+package hu.oandras.memoryprofiling.internal
 
 import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
@@ -24,7 +24,10 @@ import androidx.benchmark.perfetto.PerfettoConfig
 import androidx.benchmark.traceprocessor.PerfettoTrace
 import androidx.benchmark.traceprocessor.record
 import androidx.test.platform.app.InstrumentationRegistry
-import hu.oandras.memoryprofiling.internal.OutputFiles
+import hu.oandras.memoryprofiling.Heap
+import hu.oandras.memoryprofiling.HeapprofdConfig
+import hu.oandras.memoryprofiling.ProfileKind
+import hu.oandras.memoryprofiling.ProfileResult
 import java.io.File
 
 internal object HeapprofdBackend {

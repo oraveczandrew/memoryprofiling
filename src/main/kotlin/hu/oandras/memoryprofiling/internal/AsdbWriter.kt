@@ -25,19 +25,19 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-internal class AsdbWriter(private val file: File) : Closeable {
+internal class AsdbWriter(file: File) : Closeable {
 
-    private data class MethodInfo(val classId: Int, val name: String, val file: String)
+    private data class MethodInfo(@JvmField val classId: Int, @JvmField val name: String, @JvmField val file: String)
 
-    private data class Frame(val methodId: Int, val line: Int)
+    private data class Frame(@JvmField val methodId: Int, @JvmField val line: Int)
 
     private data class Allocation(
-        val classId: Int,
-        val size: Long,
-        val length: Int,
-        val threadId: Int,
-        val stackId: Int,
-        val timestampNs: Long,
+        @JvmField val classId: Int,
+        @JvmField val size: Long,
+        @JvmField val length: Int,
+        @JvmField val threadId: Int,
+        @JvmField val stackId: Int,
+        @JvmField val timestampNs: Long,
     )
 
     private val classes = LinkedHashMap<Int, String>()
@@ -146,10 +146,10 @@ internal class AsdbWriter(private val file: File) : Closeable {
         }
         for ((id, frames) in stacks) {
             val encoded = ProtoWriter()
-            for (frame in frames) {
+            for ((methodId, line) in frames) {
                 val value = ProtoWriter()
-                value.int(1, frame.methodId)
-                value.int(2, frame.line)
+                value.int(1, methodId)
+                value.int(2, line)
                 encoded.bytes(1, value.toByteArray())
             }
             val value = ProtoWriter()
@@ -176,16 +176,16 @@ internal class AsdbWriter(private val file: File) : Closeable {
         for (chunk in allocations.chunked(MAX_EVENTS_PER_ROW)) {
             val batch = ProtoWriter()
             batch.long(1, chunk.first().timestampNs)
-            for (allocation in chunk) {
+            for ((classId, size, length, threadId, stackId) in chunk) {
                 val value = ProtoWriter()
-                value.int(2, allocation.classId)
-                value.long(3, allocation.size)
-                value.int(4, allocation.length)
-                value.int(5, allocation.threadId)
-                if (allocation.stackId != 0) {
-                    value.int(6, allocation.stackId)
+                value.int(2, classId)
+                value.long(3, size)
+                value.int(4, length)
+                value.int(5, threadId)
+                if (stackId != 0) {
+                    value.int(6, stackId)
                 }
-                threads[allocation.threadId]?.let { value.string(10, it) }
+                threads[threadId]?.let { value.string(10, it) }
 
                 val event = ProtoWriter()
                 event.bytes(4, value.toByteArray())

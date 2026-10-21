@@ -10,7 +10,7 @@ If the user asks for a report, make it in the tmp folder as a Markdown file.
 - Record important findings, attempted approaches, failures, decisions, and next steps. Read it before starting or resuming work, and do not repeat failed approaches unless new evidence justifies them.
 - Update the log after each major investigation step or milestone, so the current state can be recovered after interruption.
 - Work-log/audit identifiers ("#45", "D10", "R7") live ONLY in `tmp/` logs and commit messages — never in code, KDoc, logs, or docs (`tmp/` is git-ignored, so such a reference points nowhere). Write the self-contained reason instead.
-- Committable files must never reference `tmp/` paths (incl. screenshots), device serials, or emulator names: say, "API-26 emulator" / "API-36 phone" instead.
+- Committable files must never reference `tmp/` paths (incl. screenshots), device-specific identifiers, or emulator names: say, "API-26 emulator" / "API-36 phone" instead.
 
 ## Asking for sources you cannot reliably reproduce
 
@@ -19,7 +19,7 @@ Do **not** fabricate or guess complex low-level sources (e.g., handwritten assem
 ## Commits
 
 - Create commits without agent attribution footers (no "Created with ...", Co-authored-by, or similar trailers). Do not touch commit.gpgsign — PGP signing follows the repo config.
-- **Never push without explicit request.** Do not run `git push` (or equivalent) unless the user specifically asks you to push. Do not push after creating commits.
+- **Never push without an explicit request.** Do not run `git push` (or equivalent) unless the user specifically asks you to push. Do not push after creating commits.
 
 ## Tooling preferences
 
@@ -29,7 +29,7 @@ Do **not** fabricate or guess complex low-level sources (e.g., handwritten assem
 
 ## Test Results & Caches
 
-- When IDE test run results are not explicitly exported by the user, inspect Android Studio's internal test history cache directory:
+- When the user does not explicitly export IDE test run results, inspect Android Studio's internal test history cache directory:
   `~/Library/Caches/Google/AndroidStudio*/testHistory/<project-hash>/*.xml`
   to retrieve recent test run XML reports and failure stack traces.
 
@@ -44,7 +44,7 @@ Always use the project's `tmp/` folder for temporary files (screenshots, dumps, 
 ## Searching files
 Never search from the filesystem root (`/`) or outside the project (no `find /`, no unscoped sweeps). Always scope file/content searches to the project directory or an explicit subdirectory.
 
-## Performance - avoid primitive boxing
+## Performance – avoid primitive boxing
 - `takeIf` / `takeUnless` (and similar nullable-returning scope functions) are FORBIDDEN on primitive values (`Int`, `Long`, `Float`, `Double`, `Boolean`): the nullable result boxes the primitive (`Integer.valueOf` etc.) on every call. Use a plain `if` / `else`, which stays unboxed (verified on bytecode: plain `ifle` branches, zero `valueOf` calls).
   - Bad: `val w = d.intrinsicWidth.takeIf { it > 0 } ?: targetSize`
   - Good: `val raw = d.intrinsicWidth` + `val w = if (raw > 0) raw else targetSize`

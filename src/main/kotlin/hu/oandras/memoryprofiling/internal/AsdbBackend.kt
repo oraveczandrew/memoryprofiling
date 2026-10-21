@@ -34,6 +34,7 @@ internal object AsdbBackend {
             context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
     }
 
+    @androidx.annotation.RequiresApi(28)
     fun record(label: String, config: AsdbConfig, block: () -> Unit): ProfileResult {
         require(config.sampleEvery > 0) { "sampleEvery must be at least 1." }
         require(config.stackDepth in 0..256) { "stackDepth must be between 0 and 256." }

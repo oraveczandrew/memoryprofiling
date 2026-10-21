@@ -14,12 +14,12 @@
 
 cmake_minimum_required(VERSION 3.22.1)
 
-project(nf_alloc_agent CXX)
+project(alloc_agent CXX)
 
-add_library(nf_alloc_agent SHARED nf_alloc_agent.cpp)
+add_library(alloc_agent SHARED alloc_agent.cpp)
 
-target_include_directories(nf_alloc_agent PRIVATE include)
+target_include_directories(alloc_agent PRIVATE include)
 
-target_compile_features(nf_alloc_agent PRIVATE cxx_std_17)
+target_compile_features(alloc_agent PRIVATE cxx_std_17)
 
-target_link_libraries(nf_alloc_agent log)
+target_link_libraries(alloc_agent log)

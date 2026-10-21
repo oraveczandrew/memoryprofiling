@@ -22,11 +22,15 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    plugins {
+        id("com.android.application") version "9.4.1"
+        id("com.android.library") version "9.4.1"
+        id("org.jetbrains.kotlin.android") version "2.4.21"
+    }
 }
 
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
-    id("com.android.library") version "9.4.1" apply false
 }
 
 dependencyResolutionManagement {
@@ -38,3 +42,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "android-memory-profiling-test-utils"
+
+include(":sample")

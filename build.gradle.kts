@@ -16,17 +16,19 @@
 
 plugins {
     id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("maven-publish")
 }
 
 android {
     namespace = "hu.oandras.memoryprofiling"
 
-    compileSdk = 37
-    buildToolsVersion = "37.0.0"
-    ndkVersion = "29.0.14206865"
+    compileSdk = libs.versions.compileSdk.get().toInt()
+    buildToolsVersion = libs.versions.buildTools.get()
+    ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
-        minSdk = 26
+        minSdk = libs.versions.minSdk.get().toInt()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         externalNativeBuild {
@@ -39,7 +41,7 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            version = libs.versions.cmake.get()
         }
     }
 
@@ -66,7 +68,7 @@ android {
     }
 
     lint {
-        targetSdk = 37
+        targetSdk = libs.versions.targetSdk.get().toInt()
     }
 
     packaging {
@@ -76,16 +78,44 @@ android {
     }
 
     testOptions {
-        targetSdk = 37
+        targetSdk = libs.versions.targetSdk.get().toInt()
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
+        freeCompilerArgs.add("-Xmetadata-version=2.2.0")
+    }
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = "hu.oandras"
+                artifactId = "android-memory-profiling-test-utils"
+                version = "0.1.0"
+            }
+        }
     }
 }
 
 dependencies {
-    implementation("androidx.benchmark:benchmark-common:1.6.0-alpha01")
-    implementation("androidx.benchmark:benchmark-traceprocessor:1.6.0-alpha01")
-    implementation("androidx.test:monitor:1.9.0-alpha02")
+    implementation(libs.androidx.benchmark.common)
+    implementation(libs.androidx.benchmark.traceprocessor)
+    implementation(libs.androidx.test.monitor)
 
-    androidTestImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.3.0")
-    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }

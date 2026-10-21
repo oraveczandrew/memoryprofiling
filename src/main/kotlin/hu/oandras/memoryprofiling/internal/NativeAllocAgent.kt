@@ -21,6 +21,7 @@ import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Debug
 import android.os.Process
+import androidx.annotation.RequiresApi
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.io.FileOutputStream
@@ -29,7 +30,7 @@ import java.util.zip.ZipFile
 
 internal object NativeAllocAgent {
 
-    private const val LIBRARY_NAME = "libnf_alloc_agent.so"
+    private const val LIBRARY_NAME = "liballoc_agent.so"
 
     private var loadError: Throwable? = null
     private var loaded = false
@@ -43,6 +44,7 @@ internal object NativeAllocAgent {
         return loadError == null
     }
 
+    @RequiresApi(28)
     fun attach(context: Context, sampleEvery: Int, stackDepth: Int) {
         check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             "JVMTI agents require Android 9 (API 28) or newer."
@@ -99,7 +101,7 @@ internal object NativeAllocAgent {
     private fun resolveAgentFile(context: Context): File {
         val directory = context.codeCacheDir
         directory.mkdirs()
-        val target = File(directory, "nf_alloc_agent.so")
+        val target = File(directory, "alloc_agent.so")
 
         val extracted = File(context.applicationInfo.nativeLibraryDir, LIBRARY_NAME)
         if (extracted.isFile) {
@@ -113,8 +115,7 @@ internal object NativeAllocAgent {
             ZipFile(context.applicationInfo.sourceDir).use { zip ->
                 val entry = abis.asSequence()
                     .map { "lib/$it/$LIBRARY_NAME" }
-                    .mapNotNull { path -> zip.getEntry(path)?.let { path to it } }
-                    .firstOrNull()
+                    .firstNotNullOfOrNull { path -> zip.getEntry(path)?.let { path to it } }
                     ?: throw IllegalStateException("$LIBRARY_NAME is missing from the APK.")
                 zip.getInputStream(entry.second).use { input ->
                     FileOutputStream(target).use { output -> input.copyTo(output) }

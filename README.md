@@ -1,118 +1,180 @@
-# Memory Profiling Test Utils
+# Android Memory Profiling Test Utils
 
-Instrumentation-test helpers for profiling memory allocations in Android apps.
+Record every ART allocation with its call stack from an instrumentation test,
+directly into an Android Studio `.asdb` database.
 
-The library is meant to be added to a module's `androidTest` configuration and used from
-instrumentation tests. It is not a benchmarking framework and does not measure timing.
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-## Backends
+## Why this exists
 
-| Backend | What it provides | Requirements |
-| --- | --- | --- |
-| Perfetto `heapprofd` | Sampled allocation call stacks for the ART and native heaps | Native heap: Android 10 (API 29)+. ART heap: Android 12 (API 31)+. `profileable` or `debuggable` test APK |
-| ART allocation counters | Exact process-wide allocation count and byte totals | Any supported API level |
-| HPROF dump | Live objects at dump time, for retained-size analysis | Any supported API level, debuggable or profileable process |
+Perfetto `heapprofd` samples allocations, so small or short-lived objects can be
+missed. This library adds a JVMTI agent that records allocations exactly, with
+their call stacks, and writes them into an Android Studio memory-profiler `.asdb`
+database on the device. There is no host-side conversion step: pull the file and
+open it.
 
-`heapprofd` is sampled: small or short-lived allocations can be missing. Lower
-`HeapprofdConfig.samplingIntervalBytes` for better coverage at the cost of overhead. Allocation
-counters are exact but process-wide, so test-harness allocations are included. HPROF does not
-contain short-lived allocations because it only sees objects that are still reachable.
+The library also wraps the other allocation backends used by instrumentation
+tests, so the same test suite can compare exact capture, sampled profiles,
+allocation counters and live-heap dumps.
 
-## Setup
+## Features
 
-Add the library repository as a Git submodule and include it as a Gradle project. The module is
-built as an Android library with the `hu.oandras.memoryprofiling` namespace.
+| Backend           | What you get                             | Exact vs sampled | Min API | Process requirement    | Artifact     |
+|-------------------|------------------------------------------|------------------|---------|------------------------|--------------|
+| `.asdb` (JVMTI)   | Per-allocation records with stack traces | Exact            | 28      | `debuggable`           | `.asdb`      |
+| heapprofd (ART)   | Sampled ART heap profile                 | Sampled          | 31      | `profileable`/debuggable | `.perfetto-trace` |
+| heapprofd (native)| Sampled native heap profile              | Sampled          | 29      | `profileable`/debuggable | `.perfetto-trace` |
+| Counters          | Exact process-wide allocation totals     | Exact totals     | 26      | none                   | in memory    |
+| HPROF             | Live-object heap dump                    | Snapshot         | 26      | none                   | `.hprof`     |
+
+## Requirements
+
+- JDK 21; Gradle 9.8.2 and AGP 9.4.1 (the versions used by this repository).
+- Android SDK platform 37 and build-tools 37.0.0.
+- NDK 29.0.14206865 and CMake 3.22.1 (needed to build the JVMTI agent).
+- API levels per backend, as listed in the table above.
+- A `debuggable` test APK for `.asdb` and HPROF; `profileable` or `debuggable`
+  for heapprofd.
+- `adb` or the test runner's additional test output to retrieve artifacts.
+
+## Installation
+
+JitPack is the intended distribution channel:
 
 ```kotlin
-// settings.gradle.kts
-include(":androidMemoryProfilingTestUtils")
+androidTestImplementation("com.github.<owner>:android-memory-profiling-test-utils:<tag>")
 ```
+
+The artifact is test-only; do not add it to `implementation`.
+
+You can also consume the repository as a Git submodule and add it as a project
+dependency:
 
 ```kotlin
-// consumer module build.gradle.kts
-dependencies {
-    androidTestImplementation(project(":androidMemoryProfilingTestUtils"))
-}
+androidTestImplementation(project(":android-memory-profiling-test-utils"))
 ```
 
-The test APK must be `profileable` or `debuggable` for `heapprofd` and HPROF. Instrumentation test
-APKs are debuggable by default; release-like test builds need this in the test manifest:
-
-```xml
-<application>
-    <profileable android:shell="true" />
-</application>
-```
-
-## Usage
-
-### Allocation call sites with heapprofd
+## Quick start: `.asdb` capture
 
 ```kotlin
 @Test
-fun parserDoesNotAllocatePerItem() {
-    assumeTrue(ArtHeapProfiler.isHeapprofdSupported())
+fun captureAllocations() {
+    assumeTrue(ArtHeapProfiler.isAsdbSupported())
 
-    ArtHeapProfiler.record("parse") {
+    val result = ArtHeapProfiler.recordAsdb(
+        label = "parser",
+        config = AsdbConfig(sampleEvery = 1, stackDepth = 32),
+    ) {
         parser.parse(input)
     }
+
+    println(result.path)
 }
 ```
 
-By default the ART heap is sampled. Native allocations can be added explicitly:
+- `sampleEvery` records one out of every N allocations. `1` records every
+  allocation and has the highest overhead.
+- `stackDepth` limits the number of stored frames per allocation; `0` disables
+  stack capture.
+- The `.asdb` file is written to the test application's `context.filesDir` and
+  registered as additional test output.
+- The target process must be `debuggable`; `profileable` alone is not enough for
+  JVMTI. The test must not run inside `BenchmarkRule` timing.
+
+## Quick start: heapprofd
 
 ```kotlin
-ArtHeapProfiler.record(
-    label = "native",
-    config = HeapprofdConfig(
-        heaps = setOf(Heap.ART, Heap.NATIVE),
-        samplingIntervalBytes = 1024,
-    ),
-) {
-    workload()
+@Test
+fun sampleArtHeap() {
+    assumeTrue(ArtHeapProfiler.isHeapprofdSupported(Heap.ART))
+
+    val result = ArtHeapProfiler.record("parser") {
+        parser.parse(input) // do not use BenchmarkRule timing here
+    }
+
+    println(result.path) // Perfetto trace
 }
 ```
 
-`record` is not reentrant and must not be combined with `BenchmarkRule`,
-`MacrobenchmarkRule`, or other Perfetto recording in the same test method.
+Use `HeapprofdConfig` to change the sampling interval, shared memory size,
+dump interval, blocking behavior or target process. On Android 10 and 11 only
+`Heap.NATIVE` is available; ART heap sampling needs API 31.
 
-### Exact allocation totals
+## Quick start: allocation counters
 
 ```kotlin
-val result = ArtHeapProfiler.measureCounters {
+val counters = ArtHeapProfiler.measureCounters {
     parser.parse(input)
 }
-
-println("${result.allocatedCount} allocations, ${result.allocatedBytes} bytes")
+println("${counters.allocatedCount} allocations, ${counters.allocatedBytes} bytes")
 ```
 
-### Retained objects with HPROF
+Counters are process-wide, so the test harness is included. Use them for
+relative comparisons, not as per-object measurements.
+
+## Quick start: HPROF
 
 ```kotlin
 val result = ArtHeapProfiler.dumpHprof("after-parse")
+println(result.path)
 ```
 
-## Output
+HPROF contains only objects alive at dump time; short-lived allocations are not
+included.
 
-`ProfileResult.path` points to the produced artifact. Trace and heap-dump files are written to the
-test app's external files directory and reported to the test runner as additional test output, so
-Android Studio and CI tooling can pull them from the device.
+## Opening the results
 
-`heapprofd` traces can be opened with [Perfetto UI](https://ui.perfetto.dev) (select the
-`android.heapprofd` data source). HPROF dumps can be opened with Android Studio's Memory Profiler or
-any HPROF-compatible heap analyzer.
+- `.asdb`: Android Studio **View > Tool Windows > Profiler**, then open the
+  memory profiler and load the `.asdb` file. It is a SQLite database; see
+  [docs/ASDB_FORMAT.md](docs/ASDB_FORMAT.md) for its schema.
+- heapprofd: open the Perfetto trace in the [Perfetto UI](https://ui.perfetto.dev)
+  (the `android.heapprofd` data source).
+- HPROF: open it from Android Studio's memory profiler or analyze it with the
+  standard HPROF tooling.
+
+Artifacts are also reported through the instrumentation runner's additional test
+output, so the Android Gradle plugin can copy them from the device when the test
+finishes.
+
+## How `.asdb` capture works
+
+- A JVMTI agent receives `VMObjectAlloc` events and buffers per-thread records.
+- The agent samples every Nth allocation when `sampleEvery` is greater than one,
+  and unwinds the requested number of frames.
+- A background thread drains the native buffer into a SQLite writer.
+- The writer emits protobuf payloads into `UnifiedEventsTable`:
+  kind 408 for classes, methods, stacks and threads; kind 409 for allocation
+  events.
+- The result is a database that Android Studio's memory profiler can open
+  directly.
 
 ## Limitations
 
-- `heapprofd` requires a `profileable` or `debuggable` process. ART heap sampling requires Android
-  12 (API 31) or newer; native heap sampling works from Android 10 (API 29).
-- The native heap is only available through heapprofd; allocation counters and HPROF cover the ART
-  heap.
-- Perfetto recording is process-wide and not thread-isolated. Run it from a single test method and
-  avoid concurrent profiling.
-- Allocation counters are deprecated Android APIs and count the whole process, including the test
-  harness.
+- The `.asdb` schema is reverse-engineered from observed Android Studio output,
+  not a published contract. It may change with Android Studio or Android
+  releases.
+- Full tracking is expensive: every recorded allocation unwinds a stack. Prefer
+  `sampleEvery > 1` or heapprofd for large workloads.
+- Capture is process-wide, not per-thread or per-object-graph.
+- The API is not reentrant; do not nest captures or combine them with
+  `BenchmarkRule`/Perfetto recording in the same test.
+- `.asdb` captures only the ART heap. Native allocations are not included.
+- `.asdb` needs API 28+ and a `debuggable` process.
+
+## Development
+
+```bash
+./gradlew :assembleDebug :lintDebug
+./gradlew :connectedDebugAndroidTest
+```
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the module layout, the JVMTI
+setup and how to inspect a captured `.asdb` with `sqlite3`.
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+The repository's own code is licensed under the Apache License, Version 2.0
+(see [LICENSE](LICENSE)). `src/main/cpp/include/jvmti.h` is a vendored
+OpenJDK/Oracle header under GPLv2 with the Classpath Exception and is not
+covered by the Apache license; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

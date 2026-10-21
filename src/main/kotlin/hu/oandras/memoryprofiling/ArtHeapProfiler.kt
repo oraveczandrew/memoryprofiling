@@ -18,6 +18,7 @@ package hu.oandras.memoryprofiling
 
 import hu.oandras.memoryprofiling.internal.AllocationCounters
 import hu.oandras.memoryprofiling.internal.AsdbBackend
+import hu.oandras.memoryprofiling.internal.HeapprofdBackend
 import hu.oandras.memoryprofiling.internal.HprofDump
 
 /**
@@ -71,7 +72,7 @@ object ArtHeapProfiler {
 
     /**
      * Records every (or every Nth) ART allocation with its call stack while [block] runs, and
-     * writes an Android Studio memory-profiler `.asdb` database on device.
+     * writes an Android Studio memory-profiler `.asdb` database on the device.
      *
      * This uses a JVMTI agent, so the test APK must be `debuggable`; it must not be combined with
      * `BenchmarkRule` timing runs. Prefer [record] when sampling is acceptable, because full
@@ -79,6 +80,7 @@ object ArtHeapProfiler {
      *
      * @throws IllegalStateException if the process is not debuggable or the agent cannot attach.
      */
+    @androidx.annotation.RequiresApi(28)
     fun recordAsdb(
         label: String,
         config: AsdbConfig = AsdbConfig(),
