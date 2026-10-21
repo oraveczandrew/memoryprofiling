@@ -63,6 +63,24 @@ class AsdbResultTest {
 
     @SdkSuppress(minSdkVersion = 28)
     @Test
+    fun emptyCaptureReturnsFailure() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+        val capture = ArtHeapProfiler.recordAsdb(
+            context,
+            "empty",
+            AsdbConfig(sampleEvery = Int.MAX_VALUE, stackDepth = 0),
+        ) {}
+
+        assertTrue("Expected Failure, got $capture", capture is AsdbCaptureResult.Failure)
+        assertTrue(
+            "Unexpected message: ${(capture as AsdbCaptureResult.Failure).message}",
+            capture.message.contains("no allocation events"),
+        )
+    }
+
+    @SdkSuppress(minSdkVersion = 28)
+    @Test
     fun blockExceptionPropagatesUnchanged() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val expected = IllegalStateException("workload failed")

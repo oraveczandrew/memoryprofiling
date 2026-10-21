@@ -18,6 +18,7 @@ package hu.oandras.memoryprofiling.internal
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.database.sqlite.SQLiteDatabase
 import android.os.Build
 import androidx.test.platform.app.InstrumentationRegistry
 import hu.oandras.memoryprofiling.AsdbConfig
@@ -135,6 +136,25 @@ internal object AsdbBackend {
         writerFailure.get()?.let { throw AsdbCaptureException("The .asdb writer failed.", it) }
         if (!file.exists() || file.length() == 0L) {
             throw AsdbCaptureException("The .asdb capture was not written to ${file.absolutePath}.")
+        }
+        val eventCount = SQLiteDatabase.openDatabase(
+            file.absolutePath,
+            null,
+            SQLiteDatabase.OPEN_READONLY,
+        ).use { db ->
+            db.rawQuery(
+                "SELECT COUNT(*) FROM UnifiedEventsTable WHERE Kind = 409",
+                null,
+            ).use { cursor ->
+                cursor.moveToFirst()
+                cursor.getLong(0)
+            }
+        }
+        if (eventCount == 0L) {
+            throw AsdbCaptureException(
+                "The .asdb capture contains no allocation events. " +
+                    "Allocate at least one object inside the block.",
+            )
         }
 
         try {

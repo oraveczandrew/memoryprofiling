@@ -28,6 +28,7 @@ follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- An empty capture is now reported as a failure instead of a successful result.
 - Repeated captures in the same process now emit complete class, method, stack,
   and thread metadata for every capture.
 - Changed capture configuration is applied on subsequent captures.
