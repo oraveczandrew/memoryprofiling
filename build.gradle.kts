@@ -76,6 +76,12 @@ android {
         }
     }
 
+    sourceSets {
+        getByName("main") {
+            java.srcDir("src/shared/kotlin")
+        }
+    }
+
     testOptions {
         targetSdk = libs.versions.targetSdk.get().toInt()
     }

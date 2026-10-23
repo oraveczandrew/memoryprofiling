@@ -23,3 +23,13 @@ target_include_directories(alloc_agent PRIVATE include)
 target_compile_features(alloc_agent PRIVATE cxx_std_17)
 
 target_link_libraries(alloc_agent log)
+
+add_library(alloc_agent_startup SHARED alloc_agent.cpp)
+
+target_include_directories(alloc_agent_startup PRIVATE include)
+
+target_compile_features(alloc_agent_startup PRIVATE cxx_std_17)
+
+target_compile_definitions(alloc_agent_startup PRIVATE ALLOC_AGENT_STARTUP=1)
+
+target_link_libraries(alloc_agent_startup log)

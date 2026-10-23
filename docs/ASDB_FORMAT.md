@@ -26,7 +26,9 @@ CREATE TABLE UnifiedEventsTable (
 
 Rows written by this library use `StreamId = 1`, `GroupId = 0`,
 `CommandId = 0`, `ProcessId = Process.myPid()`, and a nanosecond
-`Timestamp`. There is also an index on `Kind`.
+`Timestamp`. There is also an index on `Kind`. Startup captures converted on the
+host use the process id and start timestamp recorded in the raw capture header;
+their event rows keep the allocation timestamps.
 
 Two row kinds are emitted:
 

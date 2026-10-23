@@ -6,10 +6,19 @@
   (`ArtHeapProfiler`, configs, results).
 - `src/main/kotlin/hu/oandras/memoryprofiling/internal/` – backends and the
   `.asdb` writer.
-- `src/main/cpp/alloc_agent.cpp` – JVMTI `VMObjectAlloc` agent.
-- `src/main/cpp/CMakeLists.txt` – native agent build.
+- `src/shared/kotlin/` – Android-independent `.asdb` row encoding used by both
+  the device writer and the host startup converter.
+- `src/main/kotlin/hu/oandras/memoryprofiling/StartupCapture*.kt` – deployment
+  helpers for the application-startup agent.
+- `src/main/cpp/alloc_agent.cpp` – JVMTI `VMObjectAlloc` agent. The same source
+  builds the block-mode agent and the startup agent.
+- `src/main/cpp/CMakeLists.txt` – native agent builds.
 - `src/main/cpp/include/jvmti.h` – vendored OpenJDK header; see
   `THIRD_PARTY_NOTICES.md`.
+- `startup-converter/` – JVM CLI that converts startup raw captures into
+  `.asdb` files.
+- `tools/startup-capture.sh` – adb helper for installing, stopping, pulling, and
+  removing the startup agent.
 - `src/androidTest/` – instrumentation smoke tests for the library.
 - `sample/` – small application and instrumentation test demonstrating `.asdb`
   capture while parsing an SVG map with
@@ -36,6 +45,8 @@ classes. Do not raise it without a compatibility decision.
 ```bash
 ./gradlew :assembleDebug :lintDebug
 ./gradlew :sample:assembleDebug :sample:lintDebug
+./gradlew :startup-converter:build
+./gradlew :startup-converter:installDist
 ```
 
 ## Instrumentation tests
@@ -57,10 +68,27 @@ and API 28+. heapprofd ART tests need API 31+; native tests need API 29+.
 4. Retrieve the `.asdb` path printed by the test or copied through the test
    runner's additional test output.
 
-The agent is packaged as `liballoc_agent.so` for `arm64-v8a`, `armeabi-v7a`,
+The agents are packaged as `liballoc_agent.so` (block capture) and
+`liballoc_agent_startup.so` (startup capture) for `arm64-v8a`, `armeabi-v7a`,
 `x86` and `x86_64`. At runtime the library first uses the library from
 `nativeLibraryDir` and otherwise extracts it from the APK into
-`context.codeCacheDir`.
+`context.codeCacheDir`. `StartupCapture` copies the startup agent into
+`code_cache/startup_agents/`.
+
+### Testing the startup agent
+
+See [STARTUP_CAPTURE.md](STARTUP_CAPTURE.md). On a device with a debuggable app
+that contains the agent:
+
+```bash
+tools/startup-capture.sh install <package> --duration-ms 5000
+adb shell am force-stop <package>
+adb shell monkey -p <package> 1
+tools/startup-capture.sh pull <package>
+./gradlew :startup-converter:installDist
+startup-converter/build/install/startup-converter/bin/startup-converter \
+  startup_capture.raw startup_capture.asdb
+```
 
 ## Inspecting a captured `.asdb`
 
@@ -84,8 +112,9 @@ configured. Consumers add the AAR from `libs/` as described in the README.
 
 ## CI
 
-`.github/workflows/build.yml` runs `:assembleDebug` and `:lintDebug` on pushes
-and pull requests. Emulator/instrumentation jobs are intentionally not part of
-the default PR path: they are slow and costly. Run them manually or on a
-schedule, and keep API-level coverage explicit (28 for `.asdb`, 29 for native
-heapprofd, 31+ for ART heapprofd).
+`.github/workflows/build.yml` runs `:assembleDebug`, `:lintDebug`, the sample
+build and lint, and `:startup-converter:build` on pushes and pull requests.
+Emulator/instrumentation jobs are intentionally not part of the default PR path:
+they are slow and costly. Run them manually or on a schedule, and keep API-level
+coverage explicit (28 for `.asdb`, 29 for startup capture and native heapprofd,
+31+ for ART heapprofd).

@@ -19,20 +19,12 @@ package hu.oandras.memoryprofiling.internal
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.os.Process
-import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.File
 
 internal class AsdbWriter(file: File) : Closeable {
 
-    private data class MethodInfo(@JvmField val classId: Int, @JvmField val name: String, @JvmField val file: String)
-
-    private data class Frame(@JvmField val methodId: Int, @JvmField val line: Int)
-
-    private val classes = LinkedHashMap<Int, String>()
-    private val methods = LinkedHashMap<Int, MethodInfo>()
-    private val stacks = LinkedHashMap<Int, List<Frame>>()
-    private val threads = LinkedHashMap<Int, String>()
+    private val rows = AsdbRows()
 
     private val db: SQLiteDatabase = SQLiteDatabase.openOrCreateDatabase(file, null)
 
@@ -49,18 +41,11 @@ internal class AsdbWriter(file: File) : Closeable {
     }
 
     fun consume(data: ByteArray) {
-        val batch = AsdbBufferReader.read(data)
-        batch.classes.forEach { classes[it.id] = it.name }
-        batch.methods.forEach { methods[it.id] = MethodInfo(it.classId, it.name, it.file) }
-        batch.stacks.forEach { stack ->
-            stacks[stack.id] = stack.frames.map { Frame(it.methodId, it.line) }
-        }
-        batch.threads.forEach { threads[it.id] = it.name }
-        writeEvents(batch.allocations)
+        rows.consume(AsdbBufferReader.read(data)).forEach(::insertRow)
     }
 
     fun finish() {
-        writeContexts()
+        rows.finish()?.let(::insertRow)
         db.close()
     }
 
@@ -70,147 +55,15 @@ internal class AsdbWriter(file: File) : Closeable {
         }
     }
 
-    private fun writeContexts() {
-        if (classes.isEmpty() && methods.isEmpty() && stacks.isEmpty() && threads.isEmpty()) {
-            return
-        }
-
-        val batch = ProtoWriter()
-        batch.long(1, System.currentTimeMillis() * 1_000_000L)
-
-        for ((id, name) in classes) {
-            val value = ProtoWriter()
-            value.int(1, id)
-            value.string(2, name)
-            batch.bytes(2, value.toByteArray())
-        }
-        for ((id, method) in methods) {
-            val value = ProtoWriter()
-            value.int(1, id)
-            value.string(2, classes[method.classId] ?: "")
-            value.string(3, method.name)
-            value.string(4, method.file)
-            batch.bytes(3, value.toByteArray())
-        }
-        for ((id, frames) in stacks) {
-            val encoded = ProtoWriter()
-            for ((methodId, line) in frames) {
-                val value = ProtoWriter()
-                value.int(1, methodId)
-                value.int(2, line)
-                encoded.bytes(1, value.toByteArray())
-            }
-            val value = ProtoWriter()
-            value.int(1, id)
-            value.bytes(3, encoded.toByteArray())
-            batch.bytes(4, value.toByteArray())
-        }
-        for ((id, name) in threads) {
-            val value = ProtoWriter()
-            value.int(2, id)
-            value.string(3, name)
-            batch.bytes(5, value.toByteArray())
-        }
-
-        val contexts = ProtoWriter()
-        contexts.bytes(1, batch.toByteArray())
-
-        val event = ProtoWriter()
-        event.bytes(408, contexts.toByteArray())
-        insertRow(408, System.currentTimeMillis() * 1_000_000L, event.toByteArray())
-    }
-
-    private fun writeEvents(allocations: List<NativeAllocation>) {
-        for (chunk in allocations.chunked(MAX_EVENTS_PER_ROW)) {
-            val batch = ProtoWriter()
-            batch.long(1, chunk.first().timestampNs)
-            for ((classId, size, length, threadId, stackId) in chunk) {
-                val value = ProtoWriter()
-                value.int(2, classId)
-                value.long(3, size)
-                value.int(4, length)
-                value.int(5, threadId)
-                if (stackId != 0) {
-                    value.int(6, stackId)
-                }
-                threads[threadId]?.let { value.string(10, it) }
-
-                val event = ProtoWriter()
-                event.bytes(4, value.toByteArray())
-                batch.bytes(2, event.toByteArray())
-            }
-
-            val events = ProtoWriter()
-            events.bytes(1, batch.toByteArray())
-
-            val event = ProtoWriter()
-            event.bytes(409, events.toByteArray())
-            insertRow(409, chunk.first().timestampNs, event.toByteArray())
-        }
-    }
-
-    private fun insertRow(kind: Int, timestamp: Long, data: ByteArray) {
+    private fun insertRow(row: AsdbRow) {
         val values = ContentValues()
         values.put("StreamId", 1)
         values.put("ProcessId", Process.myPid())
         values.put("GroupId", 0)
-        values.put("Kind", kind)
+        values.put("Kind", row.kind)
         values.put("CommandId", 0)
-        values.put("Timestamp", timestamp)
-        values.put("Data", data)
+        values.put("Timestamp", row.timestampNs)
+        values.put("Data", row.data)
         db.insertOrThrow("UnifiedEventsTable", null, values)
-    }
-
-    private companion object {
-        const val MAX_EVENTS_PER_ROW = 20_000
-    }
-}
-
-internal class ProtoWriter {
-
-    private val out = ByteArrayOutputStream()
-
-    fun int(field: Int, value: Int) {
-        if (value != 0) {
-            tag(field, WIRE_VARINT)
-            varint(value.toLong())
-        }
-    }
-
-    fun long(field: Int, value: Long) {
-        if (value != 0L) {
-            tag(field, WIRE_VARINT)
-            varint(value)
-        }
-    }
-
-    fun string(field: Int, value: String) {
-        bytes(field, value.toByteArray(Charsets.UTF_8))
-    }
-
-    fun bytes(field: Int, value: ByteArray) {
-        tag(field, WIRE_BYTES)
-        varint(value.size.toLong())
-        out.write(value)
-    }
-
-    fun toByteArray(): ByteArray = out.toByteArray()
-
-    private fun tag(field: Int, wireType: Int) {
-        varint(((field shl 3) or wireType).toLong())
-    }
-
-    private fun varint(value: Long) {
-        var remaining = value
-        while (remaining and 0x7FL.inv() != 0L) {
-            out.write(((remaining and 0x7F) or 0x80).toInt())
-            remaining = remaining ushr 7
-        }
-        out.write(remaining.toInt())
-    }
-
-    private companion object {
-        const val WIRE_VARINT = 0
-        const val WIRE_BYTES = 2
     }
 }

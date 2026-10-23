@@ -1,7 +1,8 @@
 # Android Memory Profiling Test Utils
 
-Record every ART allocation with its call stack from an instrumentation test,
-directly into an Android Studio `.asdb` database.
+Record every ART allocation with its call stack from an instrumentation test or
+from application startup, then open the result in Android Studio's memory
+profiler (`startup` captures are converted on the host).
 
 [![Build](https://github.com/oraveczandrew/memoryprofiling/actions/workflows/build.yml/badge.svg)](https://github.com/oraveczandrew/memoryprofiling/actions/workflows/build.yml)
 [![GitHub release](https://img.shields.io/github/v/release/oraveczandrew/memoryprofiling)](https://github.com/oraveczandrew/memoryprofiling/releases)
@@ -13,8 +14,9 @@ directly into an Android Studio `.asdb` database.
 Perfetto `heapprofd` samples allocations, so small or short-lived objects can be
 missed. This library adds a JVMTI agent that records allocations exactly with
 their call stacks and writes them into an Android Studio memory-profiler `.asdb`
-database on the device. There is no host-side conversion step: pull the file and
-open it.
+database on the device. Block captures need no host-side conversion: pull the
+file and open it. Startup captures use a raw intermediate file that is converted
+on the host.
 
 The library also wraps the other allocation backends used by instrumentation
 tests, so the same test suite can compare exact capture, sampled profiles,
@@ -25,6 +27,7 @@ allocation counters, and live-heap dumps.
 | Backend            | What you get                             | Exact vs sampled | Min API | Process requirement      | Artifact          |
 |--------------------|------------------------------------------|------------------|---------|--------------------------|-------------------|
 | `.asdb` (JVMTI)    | Per-allocation records with stack traces | Exact            | 28      | `debuggable`             | `.asdb`           |
+| Startup capture    | `.asdb` before `Application.onCreate`    | Exact            | 29      | `debuggable`             | `.asdb` (converted) |
 | heapprofd (ART)    | Sampled ART heap profile                 | Sampled          | 31      | `profileable`/debuggable | `.perfetto-trace` |
 | heapprofd (native) | Sampled native heap profile              | Sampled          | 29      | `profileable`/debuggable | `.perfetto-trace` |
 | Counters           | Exact process-wide allocation totals     | Exact totals     | 26      | none                     | in memory         |
@@ -32,7 +35,8 @@ allocation counters, and live-heap dumps.
 
 ## Requirements
 
-- JDK 21; Gradle 9.8.2 and AGP 9.4.1 (the versions used by this repository).
+- JDK 21 (also required by the host-side startup converter); Gradle 9.8.2 and
+  AGP 9.4.1 (the versions used by this repository).
 - Android SDK platform 37 and build-tools 37.0.0.
 - NDK 29.0.14206865 and CMake 3.22.1 (needed to build the JVMTI agent).
 - API levels per backend, as listed in the table above.
@@ -72,8 +76,8 @@ androidTestImplementation("androidx.test:monitor:1.9.0-alpha02")
 ```
 
 Consumers of the raw AAR need `compileSdk = 37`, matching the AAR metadata.
-The AAR contains `liballoc_agent.so` for `arm64-v8a`, `armeabi-v7a`, `x86` and
-`x86_64`.
+The AAR contains `liballoc_agent.so` and `liballoc_agent_startup.so` for
+`arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`.
 
 ### Project dependency
 
@@ -129,6 +133,35 @@ Unsupported processes return `AsdbCaptureResult.NotSupported`, other capture
 failures return `AsdbCaptureResult.Failure`; exceptions thrown by the block
 propagate normally. The file is written to `context.filesDir` and
 returned in `Success.profile.path`.
+
+## Quick start: startup capture
+
+The startup agent must be attached before the app is bound, so install it for
+the *next* launch. This requires Android 10 (API 29) or newer and a `debuggable`
+app.
+
+```kotlin
+val installation = StartupCapture.install(
+    context,
+    StartupCaptureConfig(durationMs = 10_000),
+)
+println(installation.captureFile)
+```
+
+Force-stop and relaunch the app. When the `.done` marker appears, pull the raw
+file, convert it on the host, and open the `.asdb` in Android Studio:
+
+```bash
+tools/startup-capture.sh pull <package>
+./gradlew :startup-converter:installDist
+startup-converter/build/install/startup-converter/bin/startup-converter \
+  startup_capture.raw startup_capture.asdb
+```
+
+The included `tools/startup-capture.sh` helper can also install, stop, and
+remove the agent through `adb` without changing app code. See
+[docs/STARTUP_CAPTURE.md](docs/STARTUP_CAPTURE.md) for the full workflow, raw
+format, and limitations.
 
 ## Quick start: heapprofd
 
@@ -189,9 +222,13 @@ finishes.
 
 - A JVMTI agent receives `VMObjectAlloc` events and buffers per-thread records
   (up to 250,000 pending events; excess events are counted as dropped).
-- The agent samples every Nth allocation when `sampleEvery` is greater than one 
+- The agent samples every Nth allocation when `sampleEvery` is greater than one
   and unwinds the requested number of frames.
-- A background thread drains the native buffer into an SQLite writer.
+- For block captures, a background thread drains the native buffer into an
+  SQLite writer.
+- For startup captures, the same agent runs in a separate `.so` and drains the
+  native buffer into a raw file. The host converter writes the SQLite database
+  with the same row encoding.
 - The writer emits protobuf payloads into `UnifiedEventsTable`:
   kind 408 for classes, methods, stacks, and threads; kind 409 for allocation
   events.
@@ -209,7 +246,8 @@ finishes.
 - The API is not reentrant; do not nest captures or combine them with
   `BenchmarkRule`/Perfetto recording in the same test.
 - `.asdb` captures only the ART heap. Native allocations are not included.
-- `.asdb` needs API 28+ and a `debuggable` process.
+- `.asdb` needs API 28+ and a `debuggable` process. Startup capture needs API
+  29+, a `debuggable` process, and a host conversion step.
 
 ## Development
 
@@ -219,7 +257,8 @@ finishes.
 ```
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the module layout, the JVMTI
-setup, and how to inspect a captured `.asdb` with `sqlite3`.
+setup, and how to inspect a captured `.asdb` with `sqlite3`. See
+[docs/STARTUP_CAPTURE.md](docs/STARTUP_CAPTURE.md) for startup capture.
 
 ## License
 

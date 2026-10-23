@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
 follow [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+
+- Application-startup allocation capture. A separate JVMTI agent is attached by
+  the framework before the app is bound, records to a raw file, and is converted
+  into an Android Studio `.asdb` on the host.
+- `StartupCapture` deployment helpers and `StartupCaptureConfig` for installing,
+  stopping, and removing the startup agent from a debuggable app.
+- `:startup-converter` JVM CLI and `tools/startup-capture.sh` adb helper.
+- Host tests for the raw startup format and conversion, plus an instrumentation
+  test for installing and removing the startup agent.
+- The shared `.asdb` row encoder used by both the on-device writer and the host
+  converter.
+
+### Fixed
+
+- JVMTI allocation callbacks no longer hold the pending-buffer lock while
+  calling JVMTI. Attaching a second allocation agent in the same process could
+  otherwise block the startup capture writer before it finalized its files.
+
 ## 0.1.0
 
 ### Added
