@@ -115,6 +115,7 @@ configured. Consumers add the AAR from `libs/` as described in the README.
 `.github/workflows/build.yml` runs `:assembleDebug`, `:lintDebug`, the sample
 build and lint, and `:startup-converter:build` on pushes and pull requests.
 Emulator/instrumentation jobs are intentionally not part of the default PR path:
-they are slow and costly. Run them manually or on a schedule, and keep API-level
-coverage explicit (28 for `.asdb`, 29 for startup capture and native heapprofd,
-31+ for ART heapprofd).
+they are slow and costly. `.github/workflows/instrumented.yml` runs them after
+pushes to the main branch and on manual dispatch, and keeps API-level coverage
+explicit (28 for `.asdb`, 29 for startup capture and native heapprofd, 31+ for
+ART heapprofd).
