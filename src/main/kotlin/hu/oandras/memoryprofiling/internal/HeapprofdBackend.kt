@@ -80,6 +80,8 @@ internal object HeapprofdBackend {
                     processName = processName,
                     config = config,
                     includeHeaps = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                    includeFtrace = Build.VERSION.SDK_INT in
+                        Build.VERSION_CODES.R until Build.VERSION_CODES.TIRAMISU,
                 ),
             ),
             traceCallback = { trace -> tracePath = trace.path },
@@ -105,6 +107,7 @@ internal fun heapprofdTextProto(
     processName: String,
     config: HeapprofdConfig,
     includeHeaps: Boolean,
+    includeFtrace: Boolean = false,
 ): String =
     buildString {
         appendLine("buffers {")
@@ -133,6 +136,17 @@ internal fun heapprofdTextProto(
         appendLine("    }")
         appendLine("  }")
         appendLine("}")
+        if (includeFtrace) {
+            appendLine("data_sources {")
+            appendLine("  config {")
+            appendLine("    name: \"linux.ftrace\"")
+            appendLine("    target_buffer: 0")
+            appendLine("    ftrace_config {")
+            appendLine("      ftrace_events: \"ftrace/print\"")
+            appendLine("    }")
+            appendLine("  }")
+            appendLine("}")
+        }
     }
 
 private fun escapeTextProto(value: String): String =

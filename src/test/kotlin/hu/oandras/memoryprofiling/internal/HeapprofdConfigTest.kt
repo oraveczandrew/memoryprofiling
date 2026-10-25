@@ -88,4 +88,23 @@ class HeapprofdConfigTest {
 
         assertFalse(proto.contains("heaps:"))
     }
+
+    @Test
+    fun includesFtraceDataSourceOnlyWhenRequested() {
+        val withoutFtrace = heapprofdTextProto(
+            processName = "app",
+            config = HeapprofdConfig(),
+            includeHeaps = false,
+        )
+        assertFalse(withoutFtrace.contains("linux.ftrace"))
+
+        val withFtrace = heapprofdTextProto(
+            processName = "app",
+            config = HeapprofdConfig(),
+            includeHeaps = false,
+            includeFtrace = true,
+        )
+        assertTrue(withFtrace.contains("name: \"linux.ftrace\""))
+        assertTrue(withFtrace.contains("ftrace_events: \"ftrace/print\""))
+    }
 }

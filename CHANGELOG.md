@@ -24,6 +24,10 @@ follow [Semantic Versioning](https://semver.org/).
 - JVMTI allocation callbacks no longer hold the pending-buffer lock while
   calling JVMTI. Attaching a second allocation agent in the same process could
   otherwise block the startup capture writer before it finalized its files.
+- `heapprofd` capture no longer fails on Android 11 and 12 with "did not detect
+  tracing on". Those releases poll `tracing_on`, which stays off for a
+  heapprofd-only session, so the capture config now also enables a minimal
+  ftrace data source on API 30-32.
 
 ## 0.1.0
 
